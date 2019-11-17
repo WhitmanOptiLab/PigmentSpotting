@@ -26,18 +26,10 @@ def process_image(image):
     ret,thresh1 = cv2.threshold(image,127,255,cv2.THRESH_BINARY)
     kernel = np.ones((5,5),np.uint8)
     erosion = cv2.erode(thresh1,kernel,iterations = 1)
-    #Removing noise from image
     blur = cv2.blur(image,(5,5))
-    #finding edges using edge detection
     edges = cv2.Canny(blur, 10 ,100)
-    #laplacian = cv2.Laplacian(image,cv2.CV_8UC1)
-    #sobel = cv2.Sobel(laplacian,cv2.CV_8UC1, 0, 1, ksize=5)
     dilated = cv2.dilate(edges,kernel,iterations = 1)
     erosion = cv2.erode(dilated,kernel,iterations = 1)
-
-    io.imshow(erosion)
-    io.show()
-
     return erosion
 
 def find_image_contours(image):
@@ -47,21 +39,35 @@ def find_image_contours(image):
 def extract_image_objects(cnts, image):
     original = image.copy()
     image_number = 0
+    image_paths = []
     for c in cnts:
         x,y,w,h = cv2.boundingRect(c)
         cv2.rectangle(image, (x, y), (x + w, y + h), (36,255,12), 2)
         ROI = original[y:y+h, x:x+w]
-        #cv2.imwrite("ROI_{}.png".format(image_number), ROI)
+        cv2.imwrite("ROI_{}.png".format(image_number), ROI)
+        image_paths.append("ROI_{}.png".format(image_number))
         image_number += 1
-    return image
+    return image, image_paths
+
+def get_points(img_path):
+    shape = cv2.imread(img_path)
+    #grey_shape = cv2.cvtColor(shape, cv2.COLOR_BGR2GRAY)
+    grey_shape = get_image_kmeans(shape, 2)
+    grey_shape1 = process_image(grey_shape)
+    o = cv2.ORB_create(100)
+    points = o.detect(grey_shape1, None)
+    shape_points = cv2.drawKeypoints(shape,points,color=(0,255,0), flags=0,outImage=np.array([]))
+    return shape_points
+
 
 def main():
     image = cv2.imread(sys.argv[1])
     image_k_means = get_image_kmeans(image, sys.argv[2])
     image_edges = process_image(image_k_means)
     image_contours = find_image_contours(image_edges)
-    image_objects = extract_image_objects(image_contours, image)
-    io.imshow(image_objects)
+    image_objects, paths = extract_image_objects(image_contours, image)
+    extracted_image_points = get_points(paths[1])
+    io.imshow(extracted_image_points)
     io.show()
 
 
