@@ -59,6 +59,36 @@ def get_points(img_path):
     shape_points = cv2.drawKeypoints(shape,points,color=(0,255,0), flags=0,outImage=np.array([]))
     return shape_points
 
+def get_distance(im1, im2):
+    #process images
+    img1 = cv2.imread(im1)
+    img2 = cv2.imread(im2)
+    im1_k_means = get_image_kmeans(img1, 2)
+    im2_k_means = get_image_kmeans(img2, 2)
+    processed_im1 = process_image(im1_k_means)
+    processed_im2 = process_image(im2_k_means)
+
+    #get contours
+    im1_contours = find_image_contours(processed_im1)
+    im2_contours = find_image_contours(processed_im2)
+
+    #translate contours around central moments
+    im1_moments = []
+    im2_moments = []
+
+    for c in im1_contours:
+        mom = cv2.moments(c)
+        cX = int((mom["m10"])/mom["m00"])
+        cY = int((mom["m01"])/mom["m00"])
+        im1_moments.append([cX,cY])
+    for c in im2_moments:
+        mom = cv2.moments(c)
+        cX = int((mom["m10"])/mom["m00"])
+        cY = int((mom["m01"])/mom["m00"])
+        im2_moments.append([cX,cY])
+
+    print(im1_moments)
+
 
 def main():
     image = cv2.imread(sys.argv[1])
@@ -66,9 +96,8 @@ def main():
     image_edges = process_image(image_k_means)
     image_contours = find_image_contours(image_edges)
     image_objects, paths = extract_image_objects(image_contours, image)
-    extracted_image_points = get_points(paths[1])
-    io.imshow(extracted_image_points)
-    io.show()
+    #extracted_image_points = get_points(paths[1])
+    get_distance(paths[1], sys.argv[1])
 
 
 if __name__ == '__main__':
