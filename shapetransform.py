@@ -3,9 +3,9 @@ import sys
 import numpy as np
 from skimage import io
 
-def resize_image(img):
-    r = 500.0 / img.shape[1]
-    dim = (500, int(img.shape[0] * r))
+def resize_image(img, s):
+    r = s / img.shape[1]
+    dim = (s, int(img.shape[0] * r))
     return cv2.resize(img, dim, interpolation = cv2.INTER_AREA)
 
 def match_image_size(im1, im2):
@@ -40,6 +40,13 @@ def make_bw(img):
             else:
                 new_image[y,x] = 255
     return new_image
+
+def process_vein(im1, im2):
+    grimg = cv2.cvtColor(im1,cv2.COLOR_BGR2GRAY)
+    background = np.zeros(grimg.shape, grimg.dtype)
+    x_offset=y_offset=100
+    background[y_offset:y_offset+im2.shape[0], x_offset:x_offset+im2.shape[1]] = im2
+    return background
 
 def get_petal_shape(im):
     b_im = brighten_image(im, 2,0)
@@ -124,16 +131,16 @@ def get_vein_shape(im):
 
 def align(im1,im2,s1,s2):
     sz = im1.shape
-    warp_mode = cv2.MOTION_TRANSLATION
+    warp_mode = cv2.MOTION_EUCLIDEAN
 
     if warp_mode == cv2.MOTION_HOMOGRAPHY:
         warp_matrix = np.eye(3, 3, dtype=np.float32)
     else:
         warp_matrix = np.eye(2, 3, dtype=np.float32)
 
-    number_of_iterations = 5000
+    number_of_iterations = 30000
 
-    termination_eps = 1e-10
+    termination_eps = 1e-5
 
     criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, number_of_iterations,  termination_eps)
 
@@ -147,7 +154,7 @@ def align(im1,im2,s1,s2):
     return im2_aligned
 
 def align2(im1,im2,s1,s2):
-    MAX_FEATURES = 500
+    MAX_FEATURES = 200
     GOOD_MATCH_PERCENT = 0.15
 
     im1Gray = s1
@@ -186,8 +193,8 @@ def align2(im1,im2,s1,s2):
 def main():
     img1 = cv2.imread(sys.argv[1])
     img2 = cv2.imread(sys.argv[2], cv2.IMREAD_GRAYSCALE)
-    img1 = resize_image(img1)
-    img2 = resize_image(img2)
+    img1 = resize_image(img1, 500)
+    img2 = resize_image(img2, int(sys.argv[3]))
     petal_shape = get_petal_shape(img1)
     vein_shape = get_vein_shape(img2)
 
