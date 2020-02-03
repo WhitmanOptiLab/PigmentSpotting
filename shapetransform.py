@@ -2,15 +2,7 @@ import cv2
 import sys
 import numpy as np
 from skimage import io
-
-def resize_image(img, s):
-    r = s / img.shape[1]
-    dim = (s, int(img.shape[0] * r))
-    return cv2.resize(img, dim, interpolation = cv2.INTER_AREA)
-
-def match_image_size(im1, im2):
-    dim = (im1.shape[1])
-    return cv2.resize(im2, dim, interpolation = cv2.INTER_AREA)
+import imageutilities as img_util
 
 def get_image_kmeans(image, k):
     Z = image.reshape((-1,3))
@@ -23,24 +15,6 @@ def get_image_kmeans(image, k):
     res2 = res.reshape((image.shape))
     return res2
 
-def brighten_image(i, alpha, beta):
-    new_image = np.zeros(i.shape, i.dtype)
-    for y in range(i.shape[0]):
-        for x in range(i.shape[1]):
-            for c in range(i.shape[2]):
-                new_image[y,x,c] = np.clip(alpha*i[y,x,c] + beta, 0, 255)
-    return new_image
-
-def make_bw(img):
-    new_image = np.zeros(img.shape, img.dtype)
-    for y in range(img.shape[0]):
-        for x in range(img.shape[1]):
-            if img[y,x] == 255:
-                new_image[y,x] =0
-            else:
-                new_image[y,x] = 255
-    return new_image
-
 def process_vein(im1, im2):
     grimg = cv2.cvtColor(im1,cv2.COLOR_BGR2GRAY)
     background = np.zeros(grimg.shape, grimg.dtype)
@@ -49,12 +23,12 @@ def process_vein(im1, im2):
     return background
 
 def get_petal_shape(im):
-    b_im = brighten_image(im, 2,0)
+    b_im = img_util.brighten_image(im, 2,0)
 
     kmeans = get_image_kmeans(b_im, 3)
 
     im_in =  cv2.cvtColor(kmeans,cv2.COLOR_BGR2GRAY)
-    im_in = make_bw(im_in)
+    im_in = img_util.make_bw(im_in)
 
     im_in = cv2.bitwise_not(im_in)
 
@@ -193,8 +167,8 @@ def align2(im1,im2,s1,s2):
 def main():
     img1 = cv2.imread(sys.argv[1])
     img2 = cv2.imread(sys.argv[2], cv2.IMREAD_GRAYSCALE)
-    img1 = resize_image(img1, 500)
-    img2 = resize_image(img2, int(sys.argv[3]))
+    img1 = img_util.resize_image(img1, 500)
+    img2 = img_util.resize_image(img2, int(sys.argv[3]))
     petal_shape = get_petal_shape(img1)
     vein_shape = get_vein_shape(img2)
 
