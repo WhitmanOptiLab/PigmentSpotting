@@ -6,6 +6,7 @@ Created on Sun Feb  9 15:04:44 2020
 """
 
 import cv2
+import matplotlib.pyplot as plt
 import numpy as np
 
 def pca_to_grey(image):
@@ -27,7 +28,24 @@ def create_point_cloud(image):
 
     for line in data:
         critical_points.append([0 if  d >= 100 else d for d in line])
-    #TODO: Make scatter plot off of locations of critical points
-    point_cloud = []
-    point_cloud = np.array(point_cloud)
-    return point_cloud
+
+    x = []
+    y = []
+    for i in range(len(critical_points)):
+        for j in range(len(critical_points[i])):
+            if critical_points[i][j] > 0:
+                num_points = critical_points[i][j] // 5
+                k = 0
+                while(k < num_points):
+                    x.append(j)
+                    y.append(i)
+                    k = k+1
+            # else:
+            #     x.append(j)
+            #     y.append(i)
+
+    X = np.array(x)
+    Y = np.array(y)
+    plt.scatter(X,Y)
+    plt.show()
+    return X,Y, data
