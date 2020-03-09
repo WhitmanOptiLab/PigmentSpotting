@@ -12,6 +12,7 @@ from scipy.stats import norm
 from numpy import linalg as LA
 import imageutilities as iu
 from matplotlib.patches import Ellipse
+
 def make_model(X):
     GMM = GaussianMixture(n_components=35).fit(X) # Instantiate and fit the model
     print('Converged:',GMM.converged_) # Check if the model has converged
@@ -33,7 +34,7 @@ def draw_ellipse(position, covariance, ax=None, **kwargs):
         angle = 0
         width, height = 2 * np.sqrt(covariance)
 
-    
+
     circ = Ellipse(position, 2*height, 2*height, angle, **kwargs)
     circ.set_facecolor('red')
     circ.set_edgecolor('red')
