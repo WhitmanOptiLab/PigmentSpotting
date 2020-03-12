@@ -3,7 +3,7 @@ import sys
 import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.mixture import BayesianGaussianMixture
-from cv2 import imread
+from cv2 import imread, cvtColor, COLOR_BGR2RGB
 from scipy.stats import norm
 from matplotlib.patches import Ellipse
 from matplotlib import style
@@ -27,32 +27,46 @@ def draw_circle(position, radius, ax=None, **kwargs):
     height = 2 * np.sqrt(radius)
 
     circ = Ellipse(position, 2*height, 2*height, **kwargs)
-    circ.set_facecolor('red')
-    circ.set_edgecolor('red')
+    circ.set_facecolor('blue')
+    circ.set_edgecolor('blue')
 
     ax.add_patch(circ)
 
-def make_plot(x, y, gmm, im):
+def draw_circles_on_axis_from_model(ax, model):
+    w_factor = 0.2 / model.weights_.max()
+    for pos, covar, w in zip(model.means_, model.covariances_, model.weights_):
+        if w > 0.01:
+            draw_circle(pos, covar, ax=ax, alpha=w * w_factor)
+
+def overlay_spotting_events_on_point_cloud(x, y, model, im):
     fig = plt.figure(figsize=(5,5))
     ax0 = fig.add_subplot(111)
     ax0.scatter(x,y)
     ax0.invert_yaxis()
-    w_factor = 0.2 / gmm.weights_.max()
-    for pos, covar, w in zip(gmm.means_, gmm.covariances_, gmm.weights_):
-        if w > 0.01:
-            draw_circle(pos, covar, alpha=w * w_factor)
 
+    draw_circles_on_axis_from_model(ax0, model)
+
+    plt.show()
+
+def overlay_spotting_events_on_image(image, model):
+    fig, ax = plt.subplots(1)
+    ax.imshow(image)
+
+    draw_circles_on_axis_from_model(ax, model)
     plt.show()
 
 def main():
     image = imread(sys.argv[1])
     image = iu.resize_image(image, 350)
-    x,y, im = principal_component.create_point_cloud(image)
+
+    x, y, im = principal_component.create_point_cloud(image)
     d = np.array([x,y]).T
-    # xy = np.meshgrid(x,y)
     model = make_model(d)
-    p = make_predictions(model,d)
-    make_plot(x,y,model, im)
+
+    p = make_predictions(model, d)
+
+    overlay_spotting_events_on_point_cloud(x, y, model, im)
+    overlay_spotting_events_on_image(cvtColor(image, COLOR_BGR2RGB), model)
 
 
 if __name__ == "__main__":
