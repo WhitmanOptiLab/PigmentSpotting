@@ -1,16 +1,16 @@
-import matplotlib.pyplot as plt
-import principlecomponent
 import sys
+
+import principlecomponent
+import imageutilities as iu
+
+import matplotlib.pyplot as plt
+import numpy as np
+from sklearn.mixture import BayesianGaussianMixture
+from cv2 import imread
+from scipy.stats import norm
+from matplotlib.patches import Ellipse
 from matplotlib import style
 style.use('fivethirtyeight')
-import numpy as np
-from scipy.stats import multivariate_normal
-from sklearn.mixture import BayesianGaussianMixture
-import cv2
-from scipy.stats import norm
-from numpy import linalg as LA
-import imageutilities as iu
-from matplotlib.patches import Ellipse
 
 def make_model(X):
     GMM = BayesianGaussianMixture(n_components=100, covariance_type='spherical', verbose=2).fit(X) # Instantiate and fit the model
@@ -19,26 +19,6 @@ def make_model(X):
 
 def make_predictions(GMM, d):
     prediction = GMM.predict_proba(d)
-
-def draw_ellipse(position, covariance, ax=None, **kwargs):
-    """Draw an ellipse with a given position and covariance"""
-    ax = ax or plt.gca()
-
-    # Convert covariance to principal axes
-    if covariance.shape == (2, 2):
-        U, s, Vt = np.linalg.svd(covariance)
-        angle = np.degrees(np.arctan2(U[1, 0], U[0, 0]))
-        width, height = 2 * np.sqrt(s)
-    else:
-        angle = 0
-        width, height = 2 * np.sqrt(covariance)
-
-
-    circ = Ellipse(position, 2*width, 2*height, angle, **kwargs)
-    circ.set_facecolor('red')
-    circ.set_edgecolor('red')
-
-    ax.add_patch(circ)
 
 def draw_circle(position, radius, ax=None, **kwargs):
     """Draw a circle with a given position and covariance"""
@@ -58,15 +38,14 @@ def make_plot(x, y, gmm, im):
     ax0.scatter(x,y)
     ax0.invert_yaxis()
     w_factor = 0.2 / gmm.weights_.max()
-    print(len(gmm.covariances_))
     for pos, covar, w in zip(gmm.means_, gmm.covariances_, gmm.weights_):
-        print(covar)
-        draw_circle(pos, covar, alpha=w * w_factor)
+        if w > 0.01:
+            draw_circle(pos, covar, alpha=w * w_factor)
 
     plt.show()
 
 def main():
-    image = cv2.imread(sys.argv[1])
+    image = imread(sys.argv[1])
     image = iu.resize_image(image, 350)
     x,y, im = principlecomponent.create_point_cloud(image)
     d = np.array([x,y]).T
