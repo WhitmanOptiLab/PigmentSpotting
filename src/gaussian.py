@@ -13,7 +13,7 @@ import imageutilities as iu
 from matplotlib.patches import Ellipse
 
 def make_model(X):
-    GMM = BayesianGaussianMixture(n_components=100, covariance_type='spherical', weight_concentration_prior=0.0--01/100, verbose=2).fit(X) # Instantiate and fit the model
+    GMM = BayesianGaussianMixture(n_components=100, covariance_type='spherical', verbose=2).fit(X) # Instantiate and fit the model
     print('Converged:',GMM.converged_) # Check if the model has converged
     return GMM
 

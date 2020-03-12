@@ -1,7 +1,9 @@
+import sys
 import cv2
 import numpy as np
 import imageutilities as img_util
 import image_shapes as shapes
+from skimage import io
 
 def match_images(im1,im2,s1,s2):
     sz = im1.shape
@@ -43,3 +45,13 @@ def align_images(petal, vein, size):
 
     vein_aligned = match_images(petal_img, vein_img, petal_shape,vein_shape)
     return combine_imgs(petal_img, vein_aligned)
+
+def main():
+    petalImage = cv2.imread(sys.argv[1])
+    veinImage = cv2.imread(sys.argv[2], cv2.IMREAD_GRAYSCALE)
+    dst = align_images(petalImage, veinImage, sys.argv[3])
+    io.imshow(dst)
+    io.show()
+
+if __name__ == "__main__":
+    main()
