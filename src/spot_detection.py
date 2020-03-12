@@ -9,8 +9,8 @@ from matplotlib.patches import Ellipse
 from matplotlib import style
 style.use('fivethirtyeight')
 
-import principlecomponent
-import imageutilities as iu
+import principal_component
+import image_utilities as iu
 
 def make_model(X):
     GMM = BayesianGaussianMixture(n_components=100, covariance_type='spherical', verbose=2).fit(X) # Instantiate and fit the model
@@ -47,7 +47,7 @@ def make_plot(x, y, gmm, im):
 def main():
     image = imread(sys.argv[1])
     image = iu.resize_image(image, 350)
-    x,y, im = principlecomponent.create_point_cloud(image)
+    x,y, im = principal_component.create_point_cloud(image)
     d = np.array([x,y]).T
     # xy = np.meshgrid(x,y)
     model = make_model(d)

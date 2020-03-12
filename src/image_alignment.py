@@ -5,10 +5,10 @@ import numpy as np
 import image_shapes as shapes
 from skimage import io
 
-import imageutilities as img_util
+import image_utilities as img_util
 
-def match_images(im1,im2,s1,s2):
-    sz = im1.shape
+def match_images(petal_image, vein_image, s1, s2):
+    sz = petal_image.shape
     warp_mode = cv2.MOTION_EUCLIDEAN
 
     if warp_mode == cv2.MOTION_HOMOGRAPHY:
@@ -25,9 +25,9 @@ def match_images(im1,im2,s1,s2):
     (cc, warp_matrix) = cv2.findTransformECC(s1,s2,warp_matrix, warp_mode, criteria, None, 1)
 
     if warp_mode == cv2.MOTION_HOMOGRAPHY:
-        im2_aligned = cv2.warpPerspective(im2, warp_matrix, (sz[1],sz[0]), flags=cv2.INTER_LINEAR + cv2.WARP_INVERSE_MAP)
+        im2_aligned = cv2.warpPerspective(vein_image, warp_matrix, (sz[1],sz[0]), flags=cv2.INTER_LINEAR + cv2.WARP_INVERSE_MAP)
     else:
-        im2_aligned = cv2.warpAffine(im2, warp_matrix, (sz[1],sz[0]), flags=cv2.INTER_LINEAR + cv2.WARP_INVERSE_MAP)
+        im2_aligned = cv2.warpAffine(vein_image, warp_matrix, (sz[1],sz[0]), flags=cv2.INTER_LINEAR + cv2.WARP_INVERSE_MAP)
 
     return im2_aligned
 
@@ -49,9 +49,9 @@ def align_images(petal, vein, size):
     return combine_imgs(petal_img, vein_aligned)
 
 def main():
-    petalImage = cv2.imread(sys.argv[1])
-    veinImage = cv2.imread(sys.argv[2], cv2.IMREAD_GRAYSCALE)
-    dst = align_images(petalImage, veinImage, sys.argv[3])
+    petal_image = cv2.imread(sys.argv[1])
+    vein_image = cv2.imread(sys.argv[2], cv2.IMREAD_GRAYSCALE)
+    dst = align_images(petal_image, vein_image, sys.argv[3])
     io.imshow(dst)
     io.show()
 
