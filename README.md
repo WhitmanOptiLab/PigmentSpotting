@@ -16,7 +16,7 @@ This program uses a Bayesian Gaussian mixture model to find the center and width
 
 pca_to_grey uses principal component analysis to convert the given image to greyscale by projecting the data onto the color axis that preserves the most variance.
 
-create_point_cloud converts a greyscale image to a scatterplot where darker colors are represented by more points.
+create_point_cloud converts a greyscale image to a scatterplot where darker colors are represented by more points. This allows us to use a Gaussian mixture model to find the spots.
 
 ## imageutilities.py
 
