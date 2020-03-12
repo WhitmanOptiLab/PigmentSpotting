@@ -34,18 +34,20 @@ def create_point_cloud(image):
     for i in range(len(critical_points)):
         for j in range(len(critical_points[i])):
             if critical_points[i][j] > 0:
-                num_points = critical_points[i][j] // 5
+                num_points = critical_points[i][j] // 10 # TODO: push to 10-25
                 k = 0
                 while(k < num_points):
                     x.append(j)
                     y.append(i)
                     k = k+1
+
             # else:
             #     x.append(j)
             #     y.append(i)
 
     X = np.array(x)
     Y = np.array(y)
-    plt.scatter(X,Y)
-    plt.show()
+    # plt.scatter(X,Y)
+    # plt.invert_yaxis()
+    # plt.show()
     return X,Y, data
