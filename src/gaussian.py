@@ -1,8 +1,5 @@
 import sys
 
-import principlecomponent
-import imageutilities as iu
-
 import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.mixture import BayesianGaussianMixture
@@ -11,6 +8,9 @@ from scipy.stats import norm
 from matplotlib.patches import Ellipse
 from matplotlib import style
 style.use('fivethirtyeight')
+
+import principlecomponent
+import imageutilities as iu
 
 def make_model(X):
     GMM = BayesianGaussianMixture(n_components=100, covariance_type='spherical', verbose=2).fit(X) # Instantiate and fit the model

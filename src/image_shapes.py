@@ -1,8 +1,9 @@
+import sys
 
 import cv2
-import sys
 import numpy as np
 from skimage import io
+
 import imageutilities as img_util
 
 def get_image_kmeans(image, k):

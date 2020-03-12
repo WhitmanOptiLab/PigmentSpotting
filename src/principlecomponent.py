@@ -1,10 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Sun Feb  9 15:04:44 2020
-
-@authors: Abbey Felley, Jack Taylor
-"""
-
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np

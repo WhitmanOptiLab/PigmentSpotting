@@ -1,9 +1,11 @@
 import sys
+
 import cv2
 import numpy as np
-import imageutilities as img_util
 import image_shapes as shapes
 from skimage import io
+
+import imageutilities as img_util
 
 def match_images(im1,im2,s1,s2):
     sz = im1.shape
