@@ -13,7 +13,7 @@ import principal_component
 import image_utilities as iu
 
 def make_model(X):
-    GMM = BayesianGaussianMixture(n_components=100, covariance_type='spherical', verbose=2).fit(X) # Instantiate and fit the model
+    GMM = BayesianGaussianMixture(n_components=200, max_iter=700, covariance_type='spherical', verbose=2).fit(X) # Instantiate and fit the model
     print('Converged:',GMM.converged_) # Check if the model has converged
     return GMM
 
@@ -57,7 +57,7 @@ def overlay_spotting_events_on_image(image, model):
 
 def main():
     image = imread(sys.argv[1])
-    image = iu.resize_image(image, 350)
+    image = iu.resize_image(image, 400)
 
     x, y, im = principal_component.create_point_cloud(image)
     d = np.array([x,y]).T
