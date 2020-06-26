@@ -39,11 +39,7 @@ def brighten_image(img, alpha, beta):
     Returns:
         The brightened image.
     """
-    new_image = np.zeros(img.shape, img.dtype)
-    for y in range(img.shape[0]):
-        for x in range(img.shape[1]):
-            for c in range(img.shape[2]):
-                new_image[y,x,c] = np.clip(alpha*img[y,x,c] + beta, 0, 255)
+    new_image = (np.clip(alpha*(img.astype(np.int32)) + beta, 0, 255)).astype(img.dtype)
     return new_image
 
 def make_bw(img):
@@ -56,10 +52,5 @@ def make_bw(img):
         The black and white image.
     """
     new_image = np.zeros(img.shape, img.dtype)
-    for y in range(img.shape[0]):
-        for x in range(img.shape[1]):
-            if img[y,x] == 255:
-                new_image[y,x] =0
-            else:
-                new_image[y,x] = 255
+    new_image = np.clip(~img, 0, 1)*255
     return new_image

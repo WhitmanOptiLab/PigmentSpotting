@@ -17,7 +17,6 @@ def get_image_kmeans(image, k):
     res2 = res.reshape((image.shape))
     return res2
 
-
 def process_image(im):
     im_in = cv2.bitwise_not(im)
 
@@ -49,8 +48,8 @@ def flood_fill(im):
 
 def get_petal_shape(im):
 
-    b_im = img_util.brighten_image(im, 2,0)
-    kmeans = get_image_kmeans(b_im, 3)
+    #b_im = img_util.brighten_image(im, 2,0) #Is this really necessary?
+    kmeans = get_image_kmeans(im, 3)
     im_in =  cv2.cvtColor(kmeans,cv2.COLOR_BGR2GRAY)
     im_in = img_util.make_bw(im_in)
     im_closed = process_image(im_in)
