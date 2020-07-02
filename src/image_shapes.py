@@ -50,10 +50,9 @@ def get_petal_shape(im):
 
     #b_im = img_util.brighten_image(im, 2,0) #Is this really necessary?
     kmeans = get_image_kmeans(im, 3)
-    im_in =  cv2.cvtColor(kmeans,cv2.COLOR_BGR2GRAY)
-    im_in = img_util.make_bw(im_in)
-    im_closed = process_image(im_in)
-    return flood_fill(im_closed)
+    background = kmeans[0][0]
+    foreground_mask = cv2.bitwise_not(cv2.inRange(kmeans, background, background))
+    return foreground_mask
 
 
 def get_vein_shape(im):

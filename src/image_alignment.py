@@ -20,10 +20,6 @@ def match_images(petal_image, vein_image, s1, s2, warp_mode=cv2.MOTION_AFFINE):
     termination_eps = 1e-5
 
     criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, number_of_iterations,  termination_eps)
-    io.imshow(s1)
-    io.show()
-    io.imshow(s2)
-    io.show()
     (cc, warp_matrix) = cv2.findTransformECC(s1,s2,warp_matrix, warp_mode, criteria)
 
     if warp_mode == cv2.MOTION_HOMOGRAPHY:
