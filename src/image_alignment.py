@@ -36,9 +36,12 @@ def combine_imgs(img1, img2):
     dst = cv2.addWeighted(grimg, alpha, img2, beta, 0.0)
     return dst
 
-def align_images(petal_img, vein_img):
+def align_images(petal_img, vein_img, raw_vein=True):
     petal_shape = shapes.get_petal_shape(petal_img)
-    vein_shape = shapes.get_vein_shape(vein_img)
+    if raw_vein:
+        vein_shape = shapes.get_vein_shape(vein_img)
+    else:
+        vein_shape = shapes.get_filtered_vein_shape(vein_img)
 
     vein_aligned = match_images(petal_img, vein_img, petal_shape,vein_shape)
     return combine_imgs(petal_img, vein_aligned)
