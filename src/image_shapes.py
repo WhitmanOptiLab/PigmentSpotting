@@ -95,7 +95,7 @@ def get_vein_shape(im):
     blur = cv2.GaussianBlur(im, (5, 5), 0)
     th, im_th = cv2.threshold(blur, 30, 255, cv2.THRESH_BINARY)
     label_count, labels = cv2.connectedComponents(im_th, 4, cv2.CV_32S)
-    petal = np.zeros(im.shape)
+    petal = np.zeros(im.shape, im.dtype)
     #Assume that the petal is centered in the image
     petal[labels == labels[labels.shape[0]//2][labels.shape[1]//2]] = 255
     return petal
