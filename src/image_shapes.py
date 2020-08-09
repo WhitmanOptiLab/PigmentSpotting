@@ -47,6 +47,9 @@ def flood_fill(im):
 
 
 def get_petal_shape(im):
+    #Convert image to HSV color format for easier clustering
+    im = cv2.GaussianBlur(im, (5, 5), 0)
+    im = cv2.cvtColor(im, cv2.COLOR_RGB2HSV)
     kmeans = get_image_kmeans(im, 3)
     #Assume that the cluster of the top-right corner is the background cluster
     background = kmeans[0][0]
@@ -93,9 +96,9 @@ def get_filtered_vein_shape(im):
 
 def get_vein_shape(im):
     blur = cv2.GaussianBlur(im, (5, 5), 0)
-    th, im_th = cv2.threshold(blur, 30, 255, cv2.THRESH_BINARY)
+    th, im_th = cv2.threshold(blur, 10, 255, cv2.THRESH_BINARY)
     label_count, labels = cv2.connectedComponents(im_th, 4, cv2.CV_32S)
-    petal = np.zeros(im.shape, im.dtype)
     #Assume that the petal is centered in the image
-    petal[labels == labels[labels.shape[0]//2][labels.shape[1]//2]] = 255
+    vein_label = np.array([labels[labels.shape[0]//2][labels.shape[1]//2]])
+    petal = cv2.inRange(labels, vein_label, vein_label)
     return petal
