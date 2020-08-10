@@ -1,19 +1,29 @@
+import sys
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
+import image_shapes as shapes
+from skimage import io
 
-def pca_to_grey(image):
+def pca_to_grey(image, mask, inverted=False):
     x,y,z = image.shape
     mat = image.reshape([x*y,z])
-
-    mean, eigenvectors = cv2.PCACompute(mat, np.mean(mat, axis=0).reshape(1,-1))
+    filter_array = mask.reshape([x*y])
+    pointlist = mat[filter_array > 0]
+    mean, eigenvectors = cv2.PCACompute(pointlist, mean=None)
     axis = eigenvectors[0,:].reshape([3])
 
-    newmat = np.dot(mat, axis)
-    newmat = np.around(newmat).astype(int)
+    newmat = np.dot(mat.astype(np.float32) - mean, axis)
+    newpoints = newmat[filter_array > 0]
+    rescale = ((newmat - np.min(newpoints)) * 255.0 / (np.max(newpoints)-np.min(newpoints)))
+    print(np.min(rescale), np.max(rescale))
+    rescale = np.around(rescale).astype(np.uint8)
 
-    grey = newmat.reshape([x,y])
-    return grey
+    grey = rescale.reshape([x,y])
+    if inverted:
+        grey = cv2.bitwise_not(grey)
+    pigment = cv2.bitwise_and(grey, mask)
+    return pigment
 
 def create_point_cloud(image):
     data = pca_to_grey(image)
@@ -44,3 +54,16 @@ def create_point_cloud(image):
     # plt.invert_yaxis()
     # plt.show()
     return X,Y, data
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print("Standalone usage: python principal_component.py input_filename.jpg [output_filename.jpg]")
+        sys.exit(1)
+    petal_image = cv2.imread(sys.argv[1])
+    petal_shape = shapes.get_petal_shape(petal_image)
+    result = pca_to_grey(petal_image, petal_shape, True)
+    if len(sys.argv) > 2:
+        cv2.imwrite(sys.argv[2], result)
+    else:
+        io.imshow(result)
+        io.show()
