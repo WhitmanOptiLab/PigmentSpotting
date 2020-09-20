@@ -14,13 +14,16 @@ def match_images(petal_image, vein_image, s1, s2):
     PetalCenter = (PetalMoments["m10"]/PetalMoments["m00"], PetalMoments["m01"]/PetalMoments["m00"])
     VeinMoments = cv2.moments(s2)
     VeinCenter = (VeinMoments["m10"]/VeinMoments["m00"], VeinMoments["m01"]/VeinMoments["m00"])
-    number_of_iterations = 300
+    PetalArea = PetalMoments["m00"]
+    VeinArea = VeinMoments["m00"]
+    scale = VeinArea/PetalArea
+    number_of_iterations = 100
     termination_eps = 1e-5
     criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, number_of_iterations,  termination_eps)
     best_cc = 0
     best_transform = None
     for rotation in np.arange(0, 360, 90):
-        warp_matrix = cv2.getRotationMatrix2D(PetalCenter, rotation, 1).astype(np.float32)
+        warp_matrix = cv2.getRotationMatrix2D(PetalCenter, rotation, scale).astype(np.float32)
         warp_matrix[0][2] += VeinCenter[0]-PetalCenter[0]
         warp_matrix[1][2] += VeinCenter[1]-PetalCenter[1]
         try:
@@ -33,14 +36,14 @@ def match_images(petal_image, vein_image, s1, s2):
         if best_cc > 0.99:
             break
         
-    im2_aligned = cv2.warpAffine(cv2.bitwise_and(vein_image,s2), final_warp, (sz[1],sz[0]), flags=cv2.INTER_LINEAR + cv2.WARP_INVERSE_MAP)
     if best_cc < 0.9:
         print("Error: can't find satisfactory alignment, displaying masks for debug")
         io.imshow_collection([s1, s2])
         io.show()
-    return im2_aligned
+    elif best_cc == 0:
+        raise ValueError("Cannot find any alignment for the images provided.")
+    return cv2.warpAffine(cv2.bitwise_and(vein_image,s2), final_warp, (sz[1],sz[0]), flags=cv2.INTER_LINEAR + cv2.WARP_INVERSE_MAP)
 
-    
 
 def combine_imgs(img1, img2):
     grimg = cv2.cvtColor(img2,cv2.COLOR_GRAY2BGR)
@@ -57,17 +60,24 @@ def align_images(petal_img, vein_img, raw_vein=True):
         vein_shape = shapes.get_filtered_vein_shape(vein_img)
 
     vein_aligned = match_images(petal_img, vein_img, petal_shape,vein_shape)
-    masked_petal = cv2.bitwise_and(petal_img, cv2.cvtColor(petal_shape, cv2.COLOR_GRAY2BGR))
-    combined = combine_imgs(masked_petal, vein_aligned)
-    return combined
+    return (petal_shape, vein_aligned)
 
 def main():
+    if (len(sys.argv) < 3):
+        raise ValueError("Usage: image_alignment.py <petal image> <vein image>")
     petal_image = cv2.imread(sys.argv[1])
     vein_image = cv2.imread(sys.argv[2], cv2.IMREAD_GRAYSCALE)
-    dst = align_images(petal_image, vein_image)
-    dst = cv2.cvtColor(dst, cv2.COLOR_BGR2RGB)
-    io.imshow(dst)
-    io.show()
+    (petal_shape, vein_aligned) = align_images(petal_image, vein_image)
+    masked_petal = cv2.bitwise_and(petal_image, cv2.cvtColor(petal_shape, cv2.COLOR_GRAY2BGR))
+    if (len(sys.argv) == 3):
+        combined = combine_imgs(masked_petal, vein_aligned)
+        io.imshow(combined)
+        io.show()
+    else:
+        cv2.imwrite(sys.argv[3], vein_aligned)
+
 
 if __name__ == "__main__":
     main()
+
+
