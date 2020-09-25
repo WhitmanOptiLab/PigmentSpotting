@@ -3,6 +3,7 @@ import sys
 import cv2
 import numpy as np
 import image_shapes as shapes
+import principal_component as pca
 from skimage import io
 
 import image_utilities as img_util
@@ -69,12 +70,14 @@ def main():
     vein_image = cv2.imread(sys.argv[2], cv2.IMREAD_GRAYSCALE)
     (petal_shape, vein_aligned) = align_images(petal_image, vein_image)
     masked_petal = cv2.bitwise_and(petal_image, cv2.cvtColor(petal_shape, cv2.COLOR_GRAY2BGR))
-    if (len(sys.argv) == 3):
+    if (input("Show overlaid images? (y/n): ") == 'y'):
         combined = combine_imgs(masked_petal, vein_aligned)
         io.imshow(combined)
         io.show()
-    else:
-        cv2.imwrite(sys.argv[3], vein_aligned)
+    petal_outfile = sys.argv[1][:sys.argv[1].rfind('.')] + "_pca" + sys.argv[1][sys.argv[1].rfind('.'):]
+    cv2.imwrite(petal_outfile, pca.pca_to_grey(petal_image, petal_shape, True))
+    vein_outfile = sys.argv[2][:sys.argv[2].rfind('.')] + "_aligned" + sys.argv[2][sys.argv[2].rfind('.'):]
+    cv2.imwrite(vein_outfile, vein_aligned)
 
 
 if __name__ == "__main__":
