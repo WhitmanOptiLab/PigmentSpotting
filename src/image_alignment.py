@@ -57,7 +57,7 @@ def match_images(petal_image, vein_image, s1, s2):
     #io.imshow_collection([s1, test])
     #io.show()
     try:
-        (cc, final_warp) = cv2.findTransformECC(s1,s2,warp_matrix, cv2.MOTION_AFFINE, criteria)
+        (cc, final_warp) = cv2.findTransformECC(s1,s2,warp_matrix, cv2.MOTION_AFFINE, criteria, inputMask=None, gaussFiltSize=5)
     except (cv2.error):
         cc = 0
 
