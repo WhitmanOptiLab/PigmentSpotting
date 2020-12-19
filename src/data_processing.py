@@ -37,6 +37,8 @@ def store_data(filenames, input_path, output_path):
             print(error_message)
 
 def main():
+    if not os.path.exists(sys.argv[1]): 
+        raise ValueError("The image files doesn't Exists. Please review your file path")
     dir = sys.argv[1]
     input_filepaths = get_file_names(dir)
     output_filepath = sys.argv[2]
