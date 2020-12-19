@@ -1,5 +1,5 @@
 import sys
-
+import os.path
 import cv2
 import numpy as np
 import image_shapes as shapes
@@ -90,6 +90,8 @@ def align_images(petal_img, vein_img, raw_vein=True):
 def main():
     if (len(sys.argv) < 3):
         raise ValueError("Usage: image_alignment.py <petal image> <vein image>")
+    if not (os.path.exists(sys.argv[1]) and os.path.exists(sys.argv[2])): 
+        raise ValueError("One of the image files doesn't Exists. Please review your file paths \n Usage: image.alignment.py <correct image path> <correct image path>")  
     petal_image = cv2.imread(sys.argv[1])
     vein_image = cv2.imread(sys.argv[2], cv2.IMREAD_GRAYSCALE)
     (petal_shape, vein_aligned) = align_images(petal_image, vein_image)
