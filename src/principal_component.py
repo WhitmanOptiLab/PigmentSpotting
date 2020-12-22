@@ -15,18 +15,25 @@ def pca_to_grey(image, mask, inverted=False):
 
     newmat = np.dot(mat.astype(np.float32) - mean, axis)
     newpoints = newmat[filter_array > 0]
-    rescale = ((newmat - np.min(newpoints)) * 255.0 / (np.max(newpoints)-np.min(newpoints)))
-    print(np.min(rescale), np.max(rescale))
+    Q1, Q3 = np.percentile(newpoints, 25), np.percentile(newpoints,75)
+    iqr = Q3 - Q1
+    cut_off_val = iqr * 1.5
+    lower_bound= Q1 - cut_off_val
+    non_outliers = [x for x in newpoints if x >= lower_bound]
+    new_max = max(non_outliers)
+    new_min = min(newpoints)
+    np.clip(newpoints, new_min, new_max, out=newpoints)
+    newpoints = np.asarray(newpoints, dtype=np.float64)
+    rescale = np.interp(newmat, (np.min(newpoints), np.max(newpoints)), (0,255))
     rescale = np.around(rescale).astype(np.uint8)
-
     grey = rescale.reshape([x,y])
     if inverted:
         grey = cv2.bitwise_not(grey)
     pigment = cv2.bitwise_and(grey, mask)
     return pigment
 
-def create_point_cloud(image):
-    data = pca_to_grey(image)
+def create_point_cloud(image, mask):
+    data = pca_to_grey(image, mask)
     critical_points =[]
 
     for line in data:
