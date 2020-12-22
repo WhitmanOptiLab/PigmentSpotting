@@ -1,35 +1,32 @@
 import sys
-
 import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.mixture import BayesianGaussianMixture
-from cv2 import imread, cvtColor, COLOR_BGR2RGB
+import cv2
+import image_shapes
 from scipy.stats import norm
 from matplotlib.patches import Ellipse
 from matplotlib import style
 style.use('fivethirtyeight')
-
 import principal_component
 import image_utilities as iu
 
 def make_model(X):
     GMM = BayesianGaussianMixture(n_components=200, max_iter=700, covariance_type='spherical', verbose=2).fit(X) # Instantiate and fit the model
-    print('Converged:',GMM.converged_) # Check if the model has converged
+    print('Converged:', GMM.converged_) # Check if the model has converged
     return GMM
 
 def make_predictions(GMM, d):
     prediction = GMM.predict_proba(d)
+    return prediction
 
 def draw_circle(position, radius, ax=None, **kwargs):
     """Draw a circle with a given position and covariance"""
     ax = ax or plt.gca()
-
     height = 2 * np.sqrt(radius)
-
     circ = Ellipse(position, 2*height, 2*height, **kwargs)
     circ.set_facecolor('blue')
     circ.set_edgecolor('blue')
-
     ax.add_patch(circ)
 
 def draw_circles_on_axis_from_model(ax, model):
@@ -43,31 +40,25 @@ def overlay_spotting_events_on_point_cloud(x, y, model, im):
     ax0 = fig.add_subplot(111)
     ax0.scatter(x,y)
     ax0.invert_yaxis()
-
     draw_circles_on_axis_from_model(ax0, model)
-
     plt.show()
 
 def overlay_spotting_events_on_image(image, model):
     fig, ax = plt.subplots(1)
     ax.imshow(image)
-
     draw_circles_on_axis_from_model(ax, model)
     plt.show()
 
 def main():
-    image = imread(sys.argv[1])
+    image = cv2.imread(sys.argv[1])
     image = iu.resize_image(image, 400)
-
-    x, y, im = principal_component.create_point_cloud(image)
+    petal_shape = image_shapes.get_petal_shape(image)
+    x, y, im = principal_component.create_point_cloud(image, petal_shape)
     d = np.array([x,y]).T
     model = make_model(d)
-
     p = make_predictions(model, d)
-
     overlay_spotting_events_on_point_cloud(x, y, model, im)
-    overlay_spotting_events_on_image(cvtColor(image, COLOR_BGR2RGB), model)
-
+    overlay_spotting_events_on_image(cv2.cvtColor(image, cv2.COLOR_BGR2RGB), model)
 
 if __name__ == "__main__":
     main()
