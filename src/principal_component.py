@@ -1,5 +1,6 @@
 import sys
 import cv2
+import os.path
 import matplotlib.pyplot as plt
 import numpy as np
 import image_shapes as shapes
@@ -59,6 +60,8 @@ if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Standalone usage: python principal_component.py input_filename.jpg [output_filename.jpg]")
         sys.exit(1)
+    if not os.path.exists(sys.argv[1]): 
+        raise ValueError("One of the image files doesn't Exists. Please review your file paths") 
     petal_image = cv2.imread(sys.argv[1])
     petal_shape = shapes.get_petal_shape(petal_image)
     result = pca_to_grey(petal_image, petal_shape, True)

@@ -1,5 +1,5 @@
 import sys
-
+import os.path
 import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.mixture import BayesianGaussianMixture
@@ -56,6 +56,8 @@ def overlay_spotting_events_on_image(image, model):
     plt.show()
 
 def main():
+    if not os.path.exists(sys.argv[1]): 
+        raise ValueError("The image files doesn't Exists. Please review your file path")
     image = imread(sys.argv[1])
     image = iu.resize_image(image, 400)
 
