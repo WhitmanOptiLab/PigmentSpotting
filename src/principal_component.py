@@ -5,7 +5,7 @@ import numpy as np
 import image_shapes as shapes
 from skimage import io
 
-def pca_to_grey(image, mask, inverted=False):
+def pca_to_grey(image, mask, inverted=True):
     x,y,z = image.shape
     mat = image.reshape([x*y,z])
     filter_array = mask.reshape([x*y])
@@ -32,19 +32,21 @@ def pca_to_grey(image, mask, inverted=False):
     pigment = cv2.bitwise_and(grey, mask)
     return pigment
 
-def create_point_cloud(image, mask):
-    data = pca_to_grey(image, mask)
+# Pass in a PCA grayscale image, coordinates for the spots bounding box, 
+# and the threshold found by the OTSU binarization algorithm
+def create_point_cloud(image, top_y, bottom_y, left_x, right_x, th):
+    data = image[top_y:bottom_y,left_x:right_x]
     critical_points =[]
 
     for line in data:
-        critical_points.append([0 if  d >= 100 else d for d in line])
+        critical_points.append([0 if  d <= th else d for d in line]) #0 if d >= 100 else 
 
     x = []
     y = []
     for i in range(len(critical_points)):
         for j in range(len(critical_points[i])):
             if critical_points[i][j] > 0:
-                num_points = critical_points[i][j] // 10 # TODO: push to 10-25
+                num_points = critical_points[i][j] // 20 # TODO: push to 10-25
                 k = 0
                 while(k < num_points):
                     x.append(j)
