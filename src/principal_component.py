@@ -46,7 +46,7 @@ def create_point_cloud(image, top_y, bottom_y, left_x, right_x, th):
     for i in range(len(critical_points)):
         for j in range(len(critical_points[i])):
             if critical_points[i][j] > 0:
-                num_points = critical_points[i][j] // 20 # TODO: push to 10-25
+                num_points = critical_points[i][j] // 25 # TODO: push to 10-25
                 k = 0
                 while(k < num_points):
                     x.append(j)
