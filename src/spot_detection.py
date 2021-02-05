@@ -71,8 +71,6 @@ def overlay_spotting_events_on_image(left_x, top_y, image, m_w_c, save_to_file =
     ax.imshow(image, cmap='binary_r')
     draw_circles_on_whole_image(ax, image, m_w_c, left_x, top_y)
     plt.show()
-    if save_to_file:
-        fig.savefig('plot.png')
     
 def threshold_to_connected_componenets(Pca_image):
     #Pass through PCA grayscale images
@@ -155,7 +153,7 @@ def save_to_file(spot_results, filename):
         for n, spot in enumerate(spot_results):
             np.savetxt(file, spot.T,delimiter=",",fmt='%f', header = 'spot_{}'.format(n+1))
 
-def get_predictions(image, filename, dump_to_file = True, rms_threshold = 1.5, downscaling = 600):
+def get_predictions(image, filename, dump_to_file = True, rms_threshold = 70, downscaling = 600):
     #tic = time.time()
     im = cv2.imread(image)
     im_downscaled = iu.resize_image(im, int(downscaling)) # Downscaling the image   
@@ -226,7 +224,7 @@ def get_predictions(image, filename, dump_to_file = True, rms_threshold = 1.5, d
     pca_image_original_size = principal_component.pca_to_grey(im, petal_shape_original_size)
     overlay_spotting_events_on_image((left_x * x_rescale_factor), (top_y * y_rescale_factor), pca_image_original_size, [spot_results[i] for i in range(len(spot_results))])
 
-    return spot_point_clouds, m_w_c
+    return pca_image_original_size, m_w_c
     
 
 def main():
@@ -238,6 +236,6 @@ def main():
         get_predictions(sys.argv[1], sys.argv[2], rms_threshold=sys.argv[3], downscaling=sys.argv[4])
     else:
         get_predictions(sys.argv[1], sys.argv[2])
-        
+
 if __name__ == "__main__":
     main()
