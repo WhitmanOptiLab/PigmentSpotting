@@ -5,7 +5,7 @@ import numpy as np
 import image_shapes as shapes
 from skimage import io
 
-def pca_to_grey(image, mask, inverted=False):
+def pca_to_grey(image, mask, inverted=True):
     x,y,z = image.shape
     mat = image.reshape([x*y,z])
     filter_array = mask.reshape([x*y])
@@ -15,29 +15,38 @@ def pca_to_grey(image, mask, inverted=False):
 
     newmat = np.dot(mat.astype(np.float32) - mean, axis)
     newpoints = newmat[filter_array > 0]
-    rescale = ((newmat - np.min(newpoints)) * 255.0 / (np.max(newpoints)-np.min(newpoints)))
-    print(np.min(rescale), np.max(rescale))
+    Q1, Q3 = np.percentile(newpoints, 25), np.percentile(newpoints,75)
+    iqr = Q3 - Q1
+    cut_off_val = iqr * 1.5
+    lower_bound= Q1 - cut_off_val
+    non_outliers = [x for x in newpoints if x >= lower_bound]
+    new_max = max(non_outliers)
+    new_min = min(newpoints)
+    np.clip(newpoints, new_min, new_max, out=newpoints)
+    newpoints = np.asarray(newpoints, dtype=np.float64)
+    rescale = np.interp(newmat, (np.min(newpoints), np.max(newpoints)), (0,255))
     rescale = np.around(rescale).astype(np.uint8)
-
     grey = rescale.reshape([x,y])
     if inverted:
         grey = cv2.bitwise_not(grey)
     pigment = cv2.bitwise_and(grey, mask)
     return pigment
 
-def create_point_cloud(image):
-    data = pca_to_grey(image)
+# Pass in a PCA grayscale image, coordinates for the spots bounding box, 
+# and the threshold found by the OTSU binarization algorithm
+def create_point_cloud(image, top_y, bottom_y, left_x, right_x, th):
+    data = image[top_y:bottom_y,left_x:right_x]
     critical_points =[]
 
     for line in data:
-        critical_points.append([0 if  d >= 100 else d for d in line])
+        critical_points.append([0 if  d <= th else d for d in line]) #0 if d >= 100 else 
 
     x = []
     y = []
     for i in range(len(critical_points)):
         for j in range(len(critical_points[i])):
             if critical_points[i][j] > 0:
-                num_points = critical_points[i][j] // 10 # TODO: push to 10-25
+                num_points = critical_points[i][j] // 25 # TODO: push to 10-25
                 k = 0
                 while(k < num_points):
                     x.append(j)

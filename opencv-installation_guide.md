@@ -1,4 +1,4 @@
-# How to install opencv 4 python
+# How to install opencv 4.4+ python
 Python 3.7 or greater is required (https://www.python.org/)
 ## Installation using anaconda (recommended):
 1. Install anaconda individual edition for your OS (https://docs.anaconda.com/anaconda/install/)
@@ -34,4 +34,4 @@ Installation using pip:
 2. import cv2
 3. print(cv2.\_\_version\_\_)
 
-If there are no errors you are all set to use opencv with python.
+If there are no errors and your version number is greater than 4.4, you are all set to use opencv with python.
