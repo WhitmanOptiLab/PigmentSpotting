@@ -6,7 +6,8 @@ from skimage import io, morphology
 def vein_enhance(img):
     original = img
     # Converting the Image to Gray to optimize time: only working on one channel
-    img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+    if len(np.shape(img)) > 2:
+        img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
     # First Filter: Applying a GaussianBlur to smooth the image and prepare it for processing
     img = cv.GaussianBlur(img,(19,19),0)
     # Second Filter: Using an adaptive threshold with generous operators  

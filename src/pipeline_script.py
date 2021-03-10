@@ -26,19 +26,23 @@ def process_dataset(dataset_path, new_dataset_path):
                 vein_petal_pairs.append(vein_petal_pair)
 
     for vein_petal_pair in vein_petal_pairs:
-        vein_image_path = os.path.join(dataset_path, vein_petal_pair[0])
-        vein_image = imread(vein_image_path, IMREAD_GRAYSCALE)
-        petal_image_path = os.path.join(dataset_path, vein_petal_pair[1])
-        petal_image = imread(petal_image_path)
+        vein_image_name = vein_petal_pair[0]
+        vein_image = imread(os.path.join(dataset_path, vein_image_name), IMREAD_GRAYSCALE)
+        petal_image_name = vein_petal_pair[1]
+        petal_image = imread(os.path.join(dataset_path, petal_image_name))
+        pimsz = np.shape(petal_image)
+        petal_image = petal_image[(7*pimsz[0])//24:(17*pimsz[0])//24,(7*pimsz[1])//24:(17*pimsz[1])//24]
         _, vein_aligned_image = image_alignment.align_images(petal_image, vein_image)
         pca_image, spot_results = spot_detection.get_predictions(petal_image, "_", dump_to_file= False)
         #vein_image_filtered = vein_filtering.vein_enhance(vein_image)
-        vein_image_filtered = vein_filtering.vein_enhance(vein_aligned_image)
-        with open(new_dataset_path) as dir:
-            imwrite((petal_image_path[:petal_image_path.rfind('.')] + "_PCA" + petal_image_path[petal_image_path.rfind('.'):]), pca_image)
-            imwrite((vein_image_path[:vein_image_path.rfind('.')] + "_Aligned" + vein_image_path[vein_image_path.rfind('.'):]), vein_aligned_image)
-            imwrite((vein_image_path[:vein_image_path.rfind('.')] + "_Vein_Filtered" + vein_image_path[vein_image_path.rfind('.'):]), vein_image_filtered)
-            spot_detection.save_to_file(spot_results, "GMM_Predictions".join(petal_image_path))
+        vein_image_filtered = vein_filtering.vein_enhance(vein_aligned_image)*255
+        
+        ext_idx = petal_image_name.rfind('.')
+        imwrite(os.path.join(new_dataset_path, petal_image_name[:ext_idx] + "_PCA" + petal_image_name[ext_idx:]), pca_image)
+        ext_idx = vein_image_name.rfind('.')
+        imwrite(os.path.join(new_dataset_path, vein_image_name[:ext_idx] + "_Aligned" + vein_image_name[ext_idx:]), vein_aligned_image)
+        imwrite(os.path.join(new_dataset_path, vein_image_name[:ext_idx] + "_Aligned" + "_Vein_Filtered" + vein_image_name[ext_idx:]), vein_image_filtered)
+        spot_detection.save_to_file(spot_results, os.path.join(new_dataset_path, "GMM_Predictions" + petal_image_name))
 
 
 def main():

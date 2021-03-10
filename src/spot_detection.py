@@ -22,7 +22,7 @@ from sklearn.mixture import BayesianGaussianMixture
 
 def make_model(X, n_components):
     # Instantiates and fits the model
-    GMM = BayesianGaussianMixture(n_components = n_components, max_iter= 300, covariance_type='spherical', verbose=2).fit(X) 
+    GMM = BayesianGaussianMixture(n_components = n_components, max_iter= 300, covariance_type='spherical', verbose=0).fit(X) 
     print('Converged:', GMM.converged_) # Check if the model has converged
     return GMM
 
