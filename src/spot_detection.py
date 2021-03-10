@@ -153,9 +153,8 @@ def save_to_file(spot_results, filename):
         for n, spot in enumerate(spot_results):
             np.savetxt(file, spot.T,delimiter=",",fmt='%f', header = 'spot_{}'.format(n+1))
 
-def get_predictions(image, filename, dump_to_file = True, rms_threshold = 70, downscaling = 600):
+def get_predictions(im, filename, dump_to_file = True, rms_threshold = 70, downscaling = 600):
     #tic = time.time()
-    im = cv2.imread(image)
     im_downscaled = iu.resize_image(im, int(downscaling)) # Downscaling the image   
     x_rescale_factor = im.shape[0]/im_downscaled.shape[0] # The rescale factors are used to rescale the results
     y_rescale_factor = im.shape[1]/im_downscaled.shape[1] # from the GMM back to the coordinate system of the original image 
@@ -224,18 +223,19 @@ def get_predictions(image, filename, dump_to_file = True, rms_threshold = 70, do
     pca_image_original_size = principal_component.pca_to_grey(im, petal_shape_original_size)
     overlay_spotting_events_on_image((left_x * x_rescale_factor), (top_y * y_rescale_factor), pca_image_original_size, [spot_results[i] for i in range(len(spot_results))])
 
-    return pca_image_original_size, m_w_c
+    return pca_image_original_size, spot_results
     
 
 def main():
+    image = cv2.imread(sys.argv[1])
     if len(sys.argv) < 3:
         print("Image path or filename not present \n please put [image name] [filename]")
     elif len(sys.argv) == 4:
-        get_predictions(sys.argv[1], sys.argv[2], rms_threshold=sys.argv[3]) 
+        get_predictions(image, sys.argv[2], rms_threshold=sys.argv[3]) 
     elif len(sys.argv) == 5:
-        get_predictions(sys.argv[1], sys.argv[2], rms_threshold=sys.argv[3], downscaling=sys.argv[4])
+        get_predictions(image, sys.argv[2], rms_threshold=sys.argv[3], downscaling=sys.argv[4])
     else:
-        get_predictions(sys.argv[1], sys.argv[2])
+        get_predictions(image, sys.argv[2])
 
 if __name__ == "__main__":
     main()

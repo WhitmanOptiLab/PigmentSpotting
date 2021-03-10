@@ -33,9 +33,9 @@ def vein_enhance(img):
     return img
        
 if __name__ == "__main__":
-    petal_image = cv.imread(sys.argv[1])
+    vein_image = cv.imread(sys.argv[1])
     # Converting the image to uint8 type
-    result = vein_enhance(petal_image)*255
+    result = vein_enhance(vein_image)*255
     # Saving the vein img after enhancing. 
     cv.imwrite("enhanced_vein_image.jpg", result)
     io.imshow(result > 0)
