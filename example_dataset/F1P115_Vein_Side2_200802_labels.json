@@ -1,0 +1,32 @@
+{
+    "F1P115_Vein_Side2_200802.jpg137726": {
+        "fileref": "",
+        "size": 137726,
+        "filename": "F1P115_Vein_Side2_200802.jpg",
+        "base64_img_data": "",
+        "file_attributes": {},
+        "regions": {
+            "0": {
+                "shape_attributes": {
+                    "name": "point",
+                    "cx": 572,
+                    "cy": 439
+                },
+                "region_attributes": {
+                    "label": "center_vein_top"
+                }
+            },
+            "1": {
+                "shape_attributes": {
+                    "name": "point",
+                    "cx": 182,
+                    "cy": 441
+                },
+                "region_attributes": {
+                    "label": "center_vein_bottom"
+                }
+            }
+        }
+    }
+}
+

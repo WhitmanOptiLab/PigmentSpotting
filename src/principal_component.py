@@ -36,7 +36,7 @@ def pca_to_grey(image, mask, inverted=True):
 # and the threshold found by the OTSU binarization algorithm
 def create_point_cloud(image, top_y, bottom_y, left_x, right_x, th):
     data = image[top_y:bottom_y,left_x:right_x]
-    critical_points =[]
+    critical_points =[] #tried to put ,dtype=object as per "warning"
 
     for line in data:
         critical_points.append([0 if  d <= th else d for d in line]) #0 if d >= 100 else 

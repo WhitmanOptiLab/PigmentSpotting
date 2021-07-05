@@ -1,0 +1,32 @@
+{
+    "F1P115_Vein_Center_200802.jpg182262": {
+        "fileref": "",
+        "size": 182262,
+        "filename": "F1P115_Vein_Center_200802.jpg",
+        "base64_img_data": "",
+        "file_attributes": {},
+        "regions": {
+            "0": {
+                "shape_attributes": {
+                    "name": "point",
+                    "cx": 666,
+                    "cy": 519
+                },
+                "region_attributes": {
+                    "label": "center_vein_top"
+                }
+            },
+            "1": {
+                "shape_attributes": {
+                    "name": "point",
+                    "cx": 198,
+                    "cy": 489
+                },
+                "region_attributes": {
+                    "label": "center_vein_bottom"
+                }
+            }
+        }
+    }
+}
+

@@ -5,7 +5,6 @@ import time
 import image_shapes
 import principal_component
 
-
 import numpy as np
 import image_utilities as iu
 import matplotlib.pyplot as plt
@@ -98,10 +97,8 @@ def process_componenet_stats(stats):
     return processed_stats
 
 def create_spot_point_clouds(Pca_image, processed_stats, th):
-
     # Creates a point cloud for the GMM for each spot based on its bounding box
     # Then wraps the data into an array
-
     top_y, bottom_y = processed_stats[:,1], processed_stats[:,1] + processed_stats[:,3]
     left_x, right_x = processed_stats[:,0], processed_stats[:,0] + processed_stats[:,2]
     spot_point_clouds = []
@@ -112,9 +109,9 @@ def create_spot_point_clouds(Pca_image, processed_stats, th):
                                                             left_x[i], 
                                                             right_x[i],
                                                             th  )
-        row = np.asarray((X,Y,data))
-        spot_point_clouds.append(row)
-    spot_point_clouds = np.vstack(spot_point_clouds)
+        spot_point_clouds.append((X,Y,data))
+#        print(spot_point_clouds) (It's NOT empty)
+#    spot_point_clouds = np.vstack(spot_point_clouds)
 
     return left_x, right_x, top_y, bottom_y, spot_point_clouds
 

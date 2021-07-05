@@ -1,0 +1,24 @@
+{
+    "F1P111_Spot_Side2_200730.JPG14346227": {
+        "fileref": "",
+        "size": 14346227,
+        "filename": "F1P111_Spot_Side2_200730.JPG",
+        "base64_img_data": "",
+        "file_attributes": {},
+        "regions": {
+            "0": {
+                "shape_attributes": {
+                    "name": "rect",
+                    "x": 1562,
+                    "y": 2670,
+                    "width": 1119,
+                    "height": 909
+                },
+                "region_attributes": {
+                    "label": "bounding_box"
+                }
+            }
+        }
+    }
+}
+

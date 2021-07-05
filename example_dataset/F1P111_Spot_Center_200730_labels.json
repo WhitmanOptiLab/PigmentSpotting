@@ -1,0 +1,24 @@
+{
+    "F1P111_Spot_Center_200730.JPG14588303": {
+        "fileref": "",
+        "size": 14588303,
+        "filename": "F1P111_Spot_Center_200730.JPG",
+        "base64_img_data": "",
+        "file_attributes": {},
+        "regions": {
+            "0": {
+                "shape_attributes": {
+                    "name": "rect",
+                    "x": 1828,
+                    "y": 2471,
+                    "width": 820,
+                    "height": 1030
+                },
+                "region_attributes": {
+                    "label": "bounding_box"
+                }
+            }
+        }
+    }
+}
+
