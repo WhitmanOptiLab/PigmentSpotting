@@ -56,8 +56,6 @@ def match_images(petal_image, vein_image, s1, s2):
     #Getting annotations; recreate new dimensional conditions
 
 #    print('vein_image: ',vein_image.shape)
-    print('s1 shape: ',s1.shape)
-    print('s2 shape: ',s2.shape)
         
 #    test = cv2.warpAffine(cv2.bitwise_and(vein_image,s2), warp_matrix, (sz[1],sz[0]), flags=cv2.INTER_LINEAR + cv2.WARP_INVERSE_MAP)
 #    io.imshow_collection([s1, test])
@@ -85,7 +83,6 @@ def combine_imgs(img1, img2):
 #add arguements: petal_filename, petal_image_path,
 def align_images(petal_img, vein_img, raw_vein=True):
     petal_shape = shapes.get_petal_shape(petal_img)
-    print('petal_shape shape: ',petal_shape.shape)
 #    petal_shape = shapes.petal_shape_fromBB(petal_img,petal_filename,petal_image_path)
     if raw_vein: 
         vein_shape = shapes.get_vein_shape(vein_img)

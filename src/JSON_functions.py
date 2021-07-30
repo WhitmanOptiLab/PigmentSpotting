@@ -23,6 +23,9 @@ output: return 'new dict' (dictionary of important information)
         base = os.path.splitext(image_filename)[0]
 #        print('Based Base: ',base)
         json_filename = base + '_labels.json'
+    
+    #elif:
+    #support for processing without JSON files?
         
     print('json_file: ',json_filename)
     
@@ -84,7 +87,7 @@ output: return croppedImg, new_dict
     image_full = os.path.join(file_path,image_filename)
     #read the image
     img = cv.imread(image_full,cv.IMREAD_COLOR)
-    assert not isinstance(img,type(None)), 'image not found'    
+    assert not isinstance(img,type(None)), 'image not found'
     
     #Get Truncated Dictionary:
     new_dict = get_annotations(image_filename,file_path)
@@ -120,6 +123,8 @@ output: return updated transfomration dictionary and image with annotations
         #should be in main()        
         #transformationMatrix = np.array([[1,0,-1231],[0,1,-1970]])
         #
+        if input_dict[labelName]['name'] == 'center':
+            input_dict[labelName]['name'] = 'point'
         
         if input_dict[labelName]['name'] == 'point':
             pointMatrix = np.array([[input_dict[labelName]['cx']],[input_dict[labelName]['cy']],[1]])
@@ -165,6 +170,7 @@ def main():
     Input: image filename (image_filename)
     Output: display image with annotations layer over 
     '''
+
 #    img = cv.imread(image_filename,cv2.IMREAD_COLOR)
 #    cv.imshow('Image loaded with annotations layer applied!',img)
 #    cv.waitKey(0)

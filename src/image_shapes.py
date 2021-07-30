@@ -89,11 +89,8 @@ output: focused petal image (foreground) with everything else filtered out (back
     print(rect)
         
     whole_image = cv2.imread(petal_image_path)
-    
     mask = np.zeros(whole_image.shape[:2],np.uint8)
-
     mask = foreground_mask
-    
     print(whole_image.shape)
     
 #    bgdModel = cv.bitwise_not(foreground_mask)
@@ -160,27 +157,32 @@ def get_vein_shape(im):
             max_size = sizes[i]
     vein_label = np.array([max_label])
     petal = cv2.inRange(labels, vein_label, vein_label)
+    return petal
 
 #    img2 = np.zeros(labels.shape)
 #    img2[labels == max_label] = 255
-
-    return petal
-    
 #    cv2.imshow("Biggest component", img2)
 #    cv2.waitKey()
-
 #    return label_count,labels
-
     #Assume that the petal is centered in the image
 #    vein_label = np.array([labels[labels.shape[0]//2][labels.shape[1]//2]])
 #    petal = cv2.inRange(labels, vein_label, vein_label)
 #    return petal
 
-def main():
-    img_name = '/home/rajt/Desktop/Pipeline_Dataset_Test/F1P115_Vein_Side1_200802.jpg'
-    im = cv2.imread(img_name,0)
-    vein_shape=get_vein_shape(im)
-    print(vein_shape)
-#    cv2.imshow(vein_shape)
+def tobacco_analysis(image_filename,file_path):
+    im = cv2.imread(os.)
+    croppedImg, new_dict = JSONfunc.img_crop(image_filename,file_path)
+#    cv2.grabCut()
+    return img
 
-#main()
+
+def main():
+#    img_name = '/home/rajt/Desktop/Pipeline_Dataset_Test/F1P115_Vein_Side1_200802.jpg'
+    img_name = '/home/rajt/Desktop/Ex_Tobacco_Data/5-20_leaf11_back.NEF'    
+    im = cv2.imread(img_name,1)
+#    print(im.shape)
+    big_im = cv2.resize(im, (0,0), fx=2, fy=2)
+    cv2.imshow('image',big_im)
+    cv2.waitKey(0)
+
+main()
