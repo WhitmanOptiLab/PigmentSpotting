@@ -185,4 +185,6 @@ def main():
     cv2.imshow('image',big_im)
     cv2.waitKey(0)
 
-main()
+
+if __name__ == "__main__":
+    main()

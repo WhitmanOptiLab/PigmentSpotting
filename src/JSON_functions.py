@@ -47,9 +47,12 @@ output: return 'new dict' (dictionary of important information)
     for key in num_annotations:
         print('We are on key number: ',key)
         keyInformation = data[top_layer]['regions'][key]['shape_attributes']
-        for attr_name in data[top_layer]['regions'][key]['region_attributes']:
+        attributes = data[top_layer]['regions'][key]['region_attributes']:
+
+        for attr_name in attributes:
             if attr_name.startswith('label'):
-                labelName = data[top_layer]['regions'][key]['region_attributes'][attr_name]
+                labelName = attributes[attr_name]
+
         print('Label name is: ',labelName)
         if labelName in new_dict:
             raise ValueError("Multiple labels of the same type not currently supported.\nFound duplicate label " + labelName + " in " + json_filename)     

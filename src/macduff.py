@@ -18,15 +18,15 @@ from math import sqrt
 from sys import stderr, argv
 from copy import copy
 import os
-import NEFtesting as NEFt
+import NEF_utils
 
 _root = os.path.dirname(os.path.realpath(__file__))
 
 # Each color square must takes up more than this percentage of the image
 MIN_RELATIVE_SQUARE_SIZE = 0.0001
 
-#DEBUG = False
-DEBUG = True
+DEBUG = False
+#DEBUG = True
 
 
 MACBETH_WIDTH = 6
@@ -43,8 +43,10 @@ MAX_CONTOUR_APPROX = 500  # default was 7
 #color_data = os.path.join(_root, 'color_data',
 #                          'xrite_passport_colors_sRGB-GMB-2005.csv')
 
+
+#TODO: make path to color data an optional argument to find Macbeth function
 color_data = os.path.join(_root, 'color_data',
-                          'TestColors2.csv')
+                          'MacbethGreyscaleReflectances.csv')
 
 expected_colors = np.flip(np.loadtxt(color_data, delimiter=','), 1)
 expected_colors = expected_colors.reshape(MACBETH_HEIGHT, MACBETH_WIDTH, 3)
@@ -122,7 +124,6 @@ def rotate_box(box_corners):
 
 def check_colorchecker(values, expected_values=expected_colors):
     """Find deviation of colorchecker `values` from expected values."""
-    print(values.shape)
     diff = (values - expected_values[:, :values.shape[1]]).ravel(order='K')
     return sqrt(np.dot(diff, diff)) #/ sqrt(values.shape[1])
 
@@ -135,6 +136,7 @@ def check_colorchecker(values, expected_values=expected_colors):
 
 
 def draw_colorchecker(colors, centers, image, radius):
+    image = np.copy(image)
     for observed_color, expected_color, pt in zip(colors.reshape(-1, 3),
                                                   expected_colors.reshape(-1, 3),
                                                   centers.reshape(-1, 2)):
@@ -145,11 +147,14 @@ def draw_colorchecker(colors, centers, image, radius):
     return image
 
 class ColorChecker:
-    def __init__(self, error, values, points, size):
+    def __init__(self, values, reference, error, points, size):
         self.error = error
         self.values = values
         self.points = points
+        self.reference = reference
         self.size = size
+    def __str__(self):
+        return "Color Checker: \n\terror:{error}, \n\tvalues:{values}, \n\treference={reference} \n\tlocations:{points}, \n\tsize:{size}".format(error=self.error, values=self.values, points=self.points, size=self.size, reference = self.reference)
 
 def find_colorchecker(boxes, image, debug_filename=None, use_patch_std=True,
                       debug=DEBUG):
@@ -195,16 +200,14 @@ def find_colorchecker(boxes, image, debug_filename=None, use_patch_std=True,
             if (point1[0] != point2[0]) and (point1[1] != point2[1]):            
                 min_point_dist.append(norm(point1-point2))
     min_box_dist = min(min_point_dist)
-    print('Min distance between 2 boxes: ',min_box_dist)
+    #print('Min distance between 2 boxes: ',min_box_dist)
                       
     average_size = int(sum(min(box.size) for box in boxes) / len(boxes))
     if landscape_orientation:
         #calculate observed width as round(norm(box side length) / min distance)
         observed_width = round(norm(tr-tl)/min_box_dist)+1
 
-#        dx = (tr - tl)/(MACBETH_WIDTH - 1)
         dx = (tr - tl)/(observed_width-1)
-#        print('dx: ',dx)
 
         if MACBETH_HEIGHT > 1:
             dy = (bl - tl)/(MACBETH_HEIGHT - 1)
@@ -212,10 +215,7 @@ def find_colorchecker(boxes, image, debug_filename=None, use_patch_std=True,
         else:
             dy = 0
     else:
-#        dx = (bl - tl)/(MACBETH_WIDTH - 1)
-#        dx = round(norm(tr-br)/min_box_dist)
-#        print('dx: ',dx)
-        observed_width = round(norm(bl-tl)/min_box_dist)+1
+        observed_width = int(round(norm(bl-tl)/min_box_dist)+1)
         
         dx = (bl-tl)/(observed_width-1)
     
@@ -279,7 +279,9 @@ def find_colorchecker(boxes, image, debug_filename=None, use_patch_std=True,
         orient_3_error = float('inf')
         orient_4_error = float('inf')
 
-    print("error list: ", orient_1_error, orient_2_error, orient_3_error, orient_4_error)
+    if debug:
+        print("error list: ", orient_1_error, orient_2_error, orient_3_error, orient_4_error)
+
     min_err = min(orient_1_error, orient_2_error, orient_3_error, orient_4_error)
     
     if min_err == orient_2_error or min_err == orient_4_error:  # rotate by 180 degrees
@@ -312,7 +314,8 @@ def find_colorchecker(boxes, image, debug_filename=None, use_patch_std=True,
     return ColorChecker(error=error,
                         values=patch_values,
                         points=patch_points,
-                        size=average_size)
+                        size=average_size,
+                        reference=expected_colors)
 
 
 def angle_cos(p0, p1, p2):
@@ -412,22 +415,9 @@ def find_quad(src_contour, min_size, debug_image=None):
     return None
 
 
-def find_macbeth(img, patch_size=None, is_passport=False, debug=DEBUG,
+def find_macbeth(macbeth_img, patch_size=None, is_passport=False, debug=DEBUG,
                  min_relative_square_size=MIN_RELATIVE_SQUARE_SIZE):
         
-    if isinstance(img, str):
-        fragmented_list = os.path.splitext(img)
-#        THIS IS THE SPOT
-    
-    NEF_mode = None
-    
-    if fragmented_list[-1] == '.NEF' or fragmented_list[-1] == '.nef':
-        macbeth_img = NEFt.NEF_processing(img)
-        NEF_mode = True
-    else:
-        macbeth_img = cv.imread(img)
-        NEF_mode = False
-                
     macbeth_original = copy(macbeth_img)
     macbeth_split = cv.split(macbeth_img)
 
@@ -466,8 +456,6 @@ def find_macbeth(img, patch_size=None, is_passport=False, debug=DEBUG,
     tmp = cv.findContours(image=adaptive,
                           mode=cv.RETR_LIST,
                           method=cv.CHAIN_APPROX_SIMPLE)
-    
-    print('this is the length of tmp:',len(tmp))
     
     try:
         contours, _ = tmp
@@ -626,10 +614,10 @@ if __name__ == '__main__':
 #        print('This is argv[1]: ',argv[1])
 #        fragmented_list = os.path.splitext(argv[1])
 #        print(fragmented_list[-1])
-        out, colorchecker = find_macbeth(argv[1])
+        out, colorchecker = find_macbeth(NEF_utils.generic_imread(argv[1]))
         cv.imwrite(argv[2], out)
     elif len(argv) == 4:
-        out, colorchecker = find_macbeth(argv[1], patch_size=float(argv[3]))
+        out, colorchecker = find_macbeth(NEF_utils.generic_imread(argv[1]), patch_size=float(argv[3]))
         cv.imwrite(argv[2], out)
     else:
         print('Usage: %s <input_image> <output_image> <(optional) patch_size>\n'
