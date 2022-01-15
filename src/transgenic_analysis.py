@@ -100,7 +100,7 @@ def calibrate_image(rawimg, colorchecker):
 '''
 input: path to directory for new dataset and image pair list from output: 
 '''
-def process_dataset(dataset_path,image_list, outfile):
+def process_dataset(dataset_path,image_list, outfile, patch_size=None):
 
     results = []
 
@@ -124,10 +124,13 @@ def process_dataset(dataset_path,image_list, outfile):
 
         # Find macbeth color chart
         try:
-            macbeth_img, found_colorchecker = macduff.find_macbeth(image)
+            macbeth_img, found_colorchecker = macduff.find_macbeth(image, patch_size)
         except:
             print("Error finding colorchecker in image " + imagefilename)
             raise
+
+        if DEBUG:
+            print("Found color checker: \n", found_colorchecker)
 
         image = calibrate_image(image, found_colorchecker)
 
@@ -166,7 +169,7 @@ def main():
     if DEBUG:
         print(imagelist)
     
-    process_dataset(dataset_path,imagelist, sys.argv[2])
+    process_dataset(dataset_path,imagelist, sys.argv[2], 285)
     
 if __name__ == "__main__":
    main()

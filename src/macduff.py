@@ -323,40 +323,6 @@ def angle_cos(p0, p1, p2):
     return abs(np.dot(d1, d2) / np.sqrt(np.dot(d1, d1)*np.dot(d2, d2)))
 
 
-# https://github.com/opencv/opencv/blob/master/samples/python/squares.py
-# Note: This is similar to find_quads, added to hastily add support to
-# the `patch_size` parameter
-def find_squares(img):
-    
-    img = cv.GaussianBlur(img, (5, 5), 0)
-    squares = []
-    for gray in cv.split(img):
-        for thrs in range(0, 255, 26):
-            if thrs == 0:
-                bin = cv.Canny(gray, 0, 50, apertureSize=5)
-                bin = cv.dilate(bin, None)
-            else:
-                _retval, bin = cv.threshold(gray, thrs, 255, cv.THRESH_BINARY)
-
-            tmp = cv.findContours(bin, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE)
-            try:
-                contours, _ = tmp
-            except ValueError:  # OpenCV version < 4.0.0
-                bin, contours, _ = tmp
-
-            for cnt in contours:
-                cnt_len = cv.arcLength(cnt, True)
-                cnt = cv.approxPolyDP(cnt, 0.02*cnt_len, True)
-                if (len(cnt) == 4 and cv.contourArea(cnt) > 1000
-                        and cv.isContourConvex(cnt)):
-                    cnt = cnt.reshape(-1, 2)
-                    max_cos = max([angle_cos(cnt[i], cnt[(i+1) % 4], cnt[(i + 2) % 4])
-                                   for i in range(4)])
-                    if max_cos < 0.1:
-                        squares.append(cnt)
-    return squares
-
-
 def is_right_size(quad, patch_size, rtol=.25):
     """Determines if a (4-point) contour is approximately the right size."""
     cw = abs(np.linalg.norm(quad[0] - quad[1]) - patch_size) < rtol*patch_size
@@ -365,7 +331,7 @@ def is_right_size(quad, patch_size, rtol=.25):
 
 
 # stolen from icvGenerateQuads
-def find_quad(src_contour, min_size, debug_image=None):
+def find_quad(src_contour, min_size, max_size=None, squariness=0.9, debug_image=None):
 
     for max_error in range(2, MAX_CONTOUR_APPROX + 1):
         dst_contour = cv.approxPolyDP(src_contour, max_error, closed=True)
@@ -383,25 +349,28 @@ def find_quad(src_contour, min_size, debug_image=None):
     is_quad = False
     if len(dst_contour) == 4 and cv.isContourConvex(dst_contour):
         is_quad = True
-        perimeter = cv.arcLength(dst_contour, closed=True)
+        avg_sidelen = cv.arcLength(dst_contour, closed=True) / 4.0
         area = cv.contourArea(dst_contour, oriented=False)
 
-        d1 = np.linalg.norm(dst_contour[0] - dst_contour[2])
-        d2 = np.linalg.norm(dst_contour[1] - dst_contour[3])
-        d3 = np.linalg.norm(dst_contour[0] - dst_contour[1])
-        d4 = np.linalg.norm(dst_contour[1] - dst_contour[2])
+        diag1 = (dst_contour[0] - dst_contour[2])
+        diag2 = (dst_contour[1] - dst_contour[3])
+        center1 = (dst_contour[0] + dst_contour[2]) / 2.0
+        center2 = (dst_contour[1] + dst_contour[3]) / 2.0
+        centerdist = np.linalg.norm(center1-center2)
+        d1 = np.linalg.norm(diag1)
+        d2 = np.linalg.norm(diag2)
 
-        # philipg.  Only accept those quadrangles which are more square
+        # strattja.  Only accept those quadrangles which are more square
         # than rectangular and which are big enough
-        cond = (d3/1.1 < d4 < d3*1.1 and
-                d3*d4/1.5 < area and
-                min_size < area and
-                d1 >= 0.15*perimeter and
-                d2 >= 0.15*perimeter)
+        cond = (d1*squariness <= d2 <= d1/squariness and
+                np.abs(np.dot(diag1.flatten(), diag2.flatten()))/d1 < (1-squariness)*avg_sidelen and
+                centerdist < (1-squariness)*avg_sidelen and
+                min_size < area and ((not max_size) or area < max_size))
 
         if not cv.CALIB_CB_FILTER_QUADS or area > min_size and cond:
             is_acceptable_quad = True
             # return dst_contour
+
     if debug_image is not None:
         cv.drawContours(debug_image, [src_contour], -1, (255, 0, 0), 1)
         if is_acceptable_quad:
@@ -468,6 +437,10 @@ def find_macbeth(macbeth_img, patch_size=None, is_passport=False, debug=DEBUG,
         cv.imwrite('debug_all_contours.png', show_contours)
 
     min_size = np.product(macbeth_img.shape[:2]) * min_relative_square_size
+    max_size = None
+    if patch_size:
+        min_size = max(min_size, (0.8*patch_size)**2)
+        max_size = (1.2*patch_size)**2
 
     def is_seq_hole(c):
         return cv.contourArea(c, oriented=True) > 0
@@ -492,15 +465,11 @@ def find_macbeth(macbeth_img, patch_size=None, is_passport=False, debug=DEBUG,
         cv.imwrite("debug_quads.png", debug_img)
 
     if contours:
-        if patch_size is None:
-            initial_quads = [find_quad(c, min_size) for c in contours]
-        else:
-            initial_quads = [s for s in find_squares(macbeth_original)
-                             if is_right_size(s, patch_size)]
-            if is_passport and len(initial_quads) <= MACBETH_SQUARES:
-                qs = [find_quad(c, min_size) for c in contours]
-                qs = [x for x in qs if x is not None]
-                initial_quads = [x for x in qs if is_right_size(x, patch_size)]
+        initial_quads = [find_quad(c, min_size, max_size) for c in contours]
+        if is_passport and len(initial_quads) <= MACBETH_SQUARES:
+            qs = [find_quad(c, min_size) for c in contours]
+            qs = [x for x in qs if x is not None]
+            initial_quads = [x for x in qs if is_right_size(x, patch_size)]
         initial_quads = [q for q in initial_quads if q is not None]
         initial_boxes = [Box2D(rrect=cv.minAreaRect(q)) for q in initial_quads]
 
