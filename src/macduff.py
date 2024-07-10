@@ -436,7 +436,7 @@ def find_macbeth(macbeth_img, patch_size=None, is_passport=False, debug=DEBUG,
         cv.drawContours(show_contours, contours, -1, (0, 255, 0))
         cv.imwrite('debug_all_contours.png', show_contours)
 
-    min_size = np.product(macbeth_img.shape[:2]) * min_relative_square_size
+    min_size = np.prod(macbeth_img.shape[:2]) * min_relative_square_size
     max_size = None
     if patch_size:
         min_size = max(min_size, (0.8*patch_size)**2)
