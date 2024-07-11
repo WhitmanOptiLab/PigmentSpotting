@@ -10,7 +10,7 @@ import numpy as np
 import cv2 as cv
 from cv2 import imshow, waitKey, imread, imwrite, IMREAD_GRAYSCALE
 
-DEBUG=True
+DEBUG=False
 SILENT=True
 
 def get_annotations(image_filename, dataset_path):
