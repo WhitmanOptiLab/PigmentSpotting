@@ -10,7 +10,7 @@ import numpy as np
 import cv2 as cv
 from cv2 import imshow, waitKey, imread, imwrite, IMREAD_GRAYSCALE
 
-DEBUG=False
+DEBUG=True
 SILENT=True
 
 def get_annotations(image_filename, dataset_path):
@@ -26,25 +26,35 @@ def get_annotations(image_filename, dataset_path):
     data = json.load(open(json_full,))
 
     top_layer = [key for key in data.keys()][0]
-    num_annotations = data[top_layer]['regions'].keys()
-    
     new_dict = {}
+
+    if type(data[top_layer]["regions"]) == dict: # old json format
+        
+        num_annotations = data[top_layer]['regions'].keys()
     
-    for region in num_annotations:
-        attributes = data[top_layer]['regions'][region]['region_attributes']
-        for attr_name in attributes:
-            if attr_name.startswith('label'):
-                labelName = attributes[attr_name]
+        for region in num_annotations:
+            attributes = data[top_layer]['regions'][region]['region_attributes']
+            for attr_name in attributes:
+                if attr_name.startswith('label'):
+                    labelName = attributes[attr_name]
 
-        new_dict[labelName] = {}
+            new_dict[labelName] = {}
 
-    for region in num_annotations:
-        shape = data[top_layer]['regions'][region]['shape_attributes']
-        attributes = data[top_layer]['regions'][region]['region_attributes']
-        for label in new_dict:
-            if label == attributes['label']:
-                new_dict[label][attributes["feature"].lower()] = shape
+        for region in num_annotations:
+            shape = data[top_layer]['regions'][region]['shape_attributes']
+            attributes = data[top_layer]['regions'][region]['region_attributes']
+            for label in new_dict:
+                if label == attributes['label']:
+                    new_dict[label][attributes["feature"].lower()] = shape
 
+    elif type(data[top_layer]["regions"]) == list: # new json format
+
+        for region in data[top_layer]["regions"]:
+            delta = region["region_attributes"]["label"]
+            if delta not in new_dict.keys():
+                new_dict[delta] = {}
+            new_dict[delta][region["region_attributes"]["feature"]] = region["shape_attributes"]
+    
     return new_dict
 
 def patch_analysis(pixelList):
