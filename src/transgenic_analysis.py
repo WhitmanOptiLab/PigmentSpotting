@@ -55,6 +55,10 @@ def get_annotations(image_filename, dataset_path):
                 new_dict[delta] = {}
             new_dict[delta][region["region_attributes"]["feature"]] = region["shape_attributes"]
     
+    else:
+        
+        Exception(f"Incompatible json format: {json_filename}")
+
     return new_dict
 
 def patch_analysis(pixelList):
