@@ -28,11 +28,6 @@ MIN_RELATIVE_SQUARE_SIZE = 0.0001
 DEBUG = False
 #DEBUG = True
 
-
-MACBETH_WIDTH = 6
-MACBETH_HEIGHT = 1
-MACBETH_SQUARES = MACBETH_WIDTH * MACBETH_HEIGHT
-
 MAX_CONTOUR_APPROX = 500  # default was 7
 
 
@@ -45,12 +40,16 @@ MAX_CONTOUR_APPROX = 500  # default was 7
 
 
 #TODO: make path to color data an optional argument to find Macbeth function
-color_data = os.path.join(_root, 'color_data',
-                          'MacbethGreyscaleReflectances.csv')
 
-expected_colors = np.flip(np.loadtxt(color_data, delimiter=','), 1)
-expected_colors = expected_colors.reshape(MACBETH_HEIGHT, MACBETH_WIDTH, 3)
+def get_expected_colors(macbeth_width, macbeth_height, csv_name):
 
+    color_data = os.path.join(_root, 'color_data',
+                            csv_name)
+
+    expected_colors = np.flip(np.loadtxt(color_data, delimiter=','), 1)
+    expected_colors = expected_colors.reshape(macbeth_width, macbeth_height, 3)
+
+    return expected_colors
 
 # a class to simplify the translation from c++
 class Box2D:
@@ -122,7 +121,7 @@ def rotate_box(box_corners):
     return np.roll(box_corners, 1, 0)
 
 
-def check_colorchecker(values, expected_values=expected_colors):
+def check_colorchecker(values, expected_values):
     """Find deviation of colorchecker `values` from expected values."""
     diff = (values - expected_values[:, :values.shape[1]]).ravel(order='K')
     return sqrt(np.dot(diff, diff)) #/ sqrt(values.shape[1])
@@ -135,7 +134,7 @@ def check_colorchecker(values, expected_values=expected_colors):
 #     return check_colorchecker(lab_values, lab_expected)
 
 
-def draw_colorchecker(colors, centers, image, radius):
+def draw_colorchecker(colors, centers, image, radius, expected_colors):
     image = np.copy(image)
     for observed_color, expected_color, pt in zip(colors.reshape(-1, 3),
                                                   expected_colors.reshape(-1, 3),
@@ -156,7 +155,7 @@ class ColorChecker:
     def __str__(self):
         return "Color Checker: \n\terror:{error}, \n\tvalues:{values}, \n\treference={reference} \n\tlocations:{points}, \n\tsize:{size}".format(error=self.error, values=self.values, points=self.points, size=self.size, reference = self.reference)
 
-def find_colorchecker(boxes, image, debug_filename=None, use_patch_std=True,
+def find_colorchecker(boxes, image, expected_colors, macbeth_width, macbeth_height, macbeth_squares,debug_filename=None, use_patch_std=True,
                       debug=DEBUG):
 
     points = np.array([[box.center[0], box.center[1]] for box in boxes])
@@ -209,8 +208,8 @@ def find_colorchecker(boxes, image, debug_filename=None, use_patch_std=True,
 
         dx = (tr - tl)/(observed_width-1)
 
-        if MACBETH_HEIGHT > 1:
-            dy = (bl - tl)/(MACBETH_HEIGHT - 1)
+        if macbeth_height > 1:
+            dy = (bl - tl)/(macbeth_height - 1)
             
         else:
             dy = 0
@@ -219,35 +218,35 @@ def find_colorchecker(boxes, image, debug_filename=None, use_patch_std=True,
         
         dx = (bl-tl)/(observed_width-1)
     
-        if MACBETH_HEIGHT > 1:
-            dy = (tr - tl)/(MACBETH_HEIGHT - 1)
+        if macbeth_height > 1:
+            dy = (tr - tl)/(macbeth_height - 1)
         else:
             dy = 0
         
 
     # calculate the averages for our oriented colorchecker
-    fuzzy_dims = (MACBETH_HEIGHT, 2*MACBETH_WIDTH - observed_width)
+    fuzzy_dims = (macbeth_height, 2*macbeth_width - observed_width)
     patch_values = np.empty(fuzzy_dims + (3,), dtype='float32')
     patch_points = np.empty(fuzzy_dims + (2,), dtype='float32')
     sum_of_patch_stds = np.array((0.0, 0.0, 0.0))
-    in_bounds = (0, 2*MACBETH_WIDTH - observed_width)
-    for x in range(2*MACBETH_WIDTH - observed_width):
-        for y in range(MACBETH_HEIGHT):
-            center = tl + (x-(MACBETH_WIDTH-observed_width))*dx + y*dy
+    in_bounds = (0, 2*macbeth_width - observed_width)
+    for x in range(2*macbeth_width - observed_width):
+        for y in range(macbeth_height):
+            center = tl + (x-(macbeth_width-observed_width))*dx + y*dy
 
             px, py = center
             img_patch = crop_patch(center, [average_size]*2, image)
 
             if not landscape_orientation:
-                y = MACBETH_HEIGHT - 1 - y
+                y = macbeth_height - 1 - y
 
             patch_points[y, x] = center
             if img_patch.size != 0:
                 patch_values[y, x] = img_patch.mean(axis=(0, 1))
                 sum_of_patch_stds += img_patch.std(axis=(0, 1))
-            elif x < MACBETH_WIDTH - observed_width:
+            elif x < macbeth_width - observed_width:
                 in_bounds = (x+1, in_bounds[1])
-            elif x >= MACBETH_WIDTH:
+            elif x >= macbeth_width:
                 in_bounds = (in_bounds[0], x)
             else:
                 raise Exception('Previously detected quad now appears to be out of bounds?!?!')
@@ -269,7 +268,7 @@ def find_colorchecker(boxes, image, debug_filename=None, use_patch_std=True,
         orient_1_error = float('inf')
         orient_2_error = float('inf')
             
-    if in_bounds[1] == 2*MACBETH_WIDTH - observed_width:
+    if in_bounds[1] == 2*macbeth_width - observed_width:
         orient_3_error = check_colorchecker(patch_values[:, -expected_colors.shape[1]:in_bounds[1]],
                                             expected_colors[:, :])
     
@@ -299,7 +298,7 @@ def find_colorchecker(boxes, image, debug_filename=None, use_patch_std=True,
         patch_points = patch_points[::, -expected_colors.shape[1]:]
 
     if use_patch_std:
-        error = sum_of_patch_stds.mean() / MACBETH_SQUARES
+        error = sum_of_patch_stds.mean() / macbeth_squares
     else:
         error = min(orient_1_error, orient_2_error)
 
@@ -384,9 +383,13 @@ def find_quad(src_contour, min_size, max_size=None, squariness=0.9, debug_image=
     return None
 
 
-def find_macbeth(macbeth_img, patch_size=None, is_passport=False, debug=DEBUG,
-                 min_relative_square_size=MIN_RELATIVE_SQUARE_SIZE):
-        
+def find_macbeth(macbeth_img, macbeth_width, macbeth_height, macbeth_reflectance_file , patch_size=None, is_passport=False, debug=DEBUG,
+                 min_relative_square_size=MIN_RELATIVE_SQUARE_SIZE, ):
+    
+    macbeth_squares = macbeth_width * macbeth_height
+
+    expected_colors = get_expected_colors(macbeth_height=macbeth_width , macbeth_width=macbeth_height, csv_name=macbeth_reflectance_file)
+
     macbeth_original = copy(macbeth_img)
     macbeth_split = cv.split(macbeth_img)
 
@@ -466,7 +469,7 @@ def find_macbeth(macbeth_img, patch_size=None, is_passport=False, debug=DEBUG,
 
     if contours:
         initial_quads = [find_quad(c, min_size, max_size) for c in contours]
-        if is_passport and len(initial_quads) <= MACBETH_SQUARES:
+        if is_passport and len(initial_quads) <= macbeth_squares:
             qs = [find_quad(c, min_size) for c in contours]
             qs = [x for x in qs if x is not None]
             initial_quads = [x for x in qs if is_right_size(x, patch_size)]
@@ -479,7 +482,7 @@ def find_macbeth(macbeth_img, patch_size=None, is_passport=False, debug=DEBUG,
             cv.imwrite('debug_quads2.png', show_quads)
             print("%d initial quads found", len(initial_quads), file=stderr)
 
-        if is_passport or (len(initial_quads) > MACBETH_SQUARES):
+        if is_passport or (len(initial_quads) > macbeth_squares):
             if debug:
                 print(" (probably a Passport)\n", file=stderr)
 
@@ -534,14 +537,22 @@ def find_macbeth(macbeth_img, patch_size=None, is_passport=False, debug=DEBUG,
                 print("\n", file=stderr)
 
             found_colorchecker = \
-                find_colorchecker(initial_boxes, macbeth_original, debug_img,
+                find_colorchecker(boxes= initial_boxes,
+                                  image= macbeth_original,
+                                  expected_colors= expected_colors,
+                                  macbeth_height= macbeth_height, 
+                                  macbeth_width= macbeth_width, 
+                                  macbeth_squares= macbeth_squares, 
+                                  debug_filename= debug_img,
                                   debug=debug)
 
         # render the found colorchecker
         image = draw_colorchecker(found_colorchecker.values,
                           found_colorchecker.points,
                           macbeth_img,
-                          found_colorchecker.size)
+                          found_colorchecker.size,
+                          expected_colors,
+                          )
 
         #debugging circle placement
 #        scale_percent = 10      
