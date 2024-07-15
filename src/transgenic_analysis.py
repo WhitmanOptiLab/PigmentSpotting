@@ -5,12 +5,13 @@ import json
 import macduff
 import NEF_utils
 import csv
+import colorcalibration
 
 import numpy as np
 import cv2 as cv
 from cv2 import imshow, waitKey, imread, imwrite, IMREAD_GRAYSCALE
 
-DEBUG=False
+DEBUG=True
 SILENT=True
 
 def get_annotations(image_filename, dataset_path):
@@ -89,22 +90,6 @@ def analyze_image(img, annotations):
     return results
 
 
-
-def calibrate_image(rawimg, colorchecker):
-    offset = []
-    scale = []
-
-    #Check for a linear fit with the colorchecker
-    for axis in range(3):
-        slope, intercept = np.polyfit(colorchecker.values[0,:,axis].flatten(), 
-                                       colorchecker.reference[0,:,axis].flatten(),1)
-        offset.append(intercept)
-        scale.append(slope)
-
-    offset = np.maximum(np.array(offset),0.0)
-    scale = np.array(scale)
-    img = rawimg[:,:] * scale + offset
-    return img
 
 
 '''

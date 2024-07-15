@@ -124,6 +124,7 @@ def rotate_box(box_corners):
 def check_colorchecker(values, expected_values):
     """Find deviation of colorchecker `values` from expected values."""
     diff = (values - expected_values[:, :values.shape[1]]).ravel(order='K')
+    diff = diff[~np.isnan(diff)]
     return sqrt(np.dot(diff, diff)) #/ sqrt(values.shape[1])
 
 
@@ -203,7 +204,7 @@ def find_colorchecker(boxes, image, expected_colors, macbeth_width, macbeth_heig
                       
     average_size = int(sum(min(box.size) for box in boxes) / len(boxes))
     if landscape_orientation:
-        #calculate observed width as round(norm(box side length) / min distance)
+        #calculate observed width as round(box side length / min distance) + 1
         observed_width = round(norm(tr-tl)/min_box_dist)+1
 
         dx = (tr - tl)/(observed_width-1)
@@ -222,7 +223,8 @@ def find_colorchecker(boxes, image, expected_colors, macbeth_width, macbeth_heig
             dy = (tr - tl)/(macbeth_height - 1)
         else:
             dy = 0
-        
+    if debug:
+        print("Observed width: ", observed_width)
 
     # calculate the averages for our oriented colorchecker
     fuzzy_dims = (macbeth_height, 2*macbeth_width - observed_width)
@@ -235,13 +237,13 @@ def find_colorchecker(boxes, image, expected_colors, macbeth_width, macbeth_heig
             center = tl + (x-(macbeth_width-observed_width))*dx + y*dy
 
             px, py = center
-            img_patch = crop_patch(center, [average_size]*2, image)
+            img_patch = crop_patch(center, [average_size-3]*2, image)
 
             if not landscape_orientation:
                 y = macbeth_height - 1 - y
 
             patch_points[y, x] = center
-            if img_patch.size != 0:
+            if img_patch.size == ((average_size-3)**2)*3:
                 patch_values[y, x] = img_patch.mean(axis=(0, 1))
                 sum_of_patch_stds += img_patch.std(axis=(0, 1))
             elif x < macbeth_width - observed_width:
@@ -279,6 +281,7 @@ def find_colorchecker(boxes, image, expected_colors, macbeth_width, macbeth_heig
         orient_4_error = float('inf')
 
     if debug:
+        print("Reference shape:", expected_colors.shape)
         print("error list: ", orient_1_error, orient_2_error, orient_3_error, orient_4_error)
 
     min_err = min(orient_1_error, orient_2_error, orient_3_error, orient_4_error)
@@ -300,16 +303,24 @@ def find_colorchecker(boxes, image, expected_colors, macbeth_width, macbeth_heig
     if use_patch_std:
         error = sum_of_patch_stds.mean() / macbeth_squares
     else:
-        error = min(orient_1_error, orient_2_error)
+        error = min(orient_1_error, orient_2_error, orient_3_error, orient_4_error)
 
     if debug:
         print("dx =", dx, file=stderr)
         print("dy =", dy, file=stderr)
         print("Average contained rect size is %d\n" % average_size, file=stderr)
-        print("Orientation 1: %f\n" % orient_1_error, file=stderr)
-        print("Orientation 2: %f\n" % orient_2_error, file=stderr)
+        print("Errors: ", orient_1_error, orient_2_error, orient_3_error, orient_4_error)
         print("Error: %f\n" % error, file=stderr)
+        pts_ = [box_corners.astype(np.int32)]
+        cv.polylines(debug_images[0], pts_, True, (0, 0, 255))
 
+        bgrp = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 0, 255)]
+        for pt, c in zip(box_corners, bgrp):
+            cv.circle(debug_images[0], tuple(np.array(pt, dtype='int')), 10, c)
+        cv.imwrite(debug_filename, np.vstack(debug_images))
+
+        print("Box:\n\tCenter: %f,%f\n\tSize: %f,%f\n\tAngle: %f\n" 
+              "" % (x, y, w, h, a), file=stderr)
     return ColorChecker(error=error,
                         values=patch_values,
                         points=patch_points,

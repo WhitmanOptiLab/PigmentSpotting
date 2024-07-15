@@ -7,7 +7,7 @@ On command line: python3 data_processing.py image_list filepath
 
 
 import sys
-import principlecomponent as pc
+import principal_component as pc
 import imghdr
 import cv2 as cv
 import os
