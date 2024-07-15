@@ -252,8 +252,7 @@ def find_colorchecker(boxes, image, expected_colors, macbeth_width, macbeth_heig
                 in_bounds = (in_bounds[0], x)
             else:
                 raise Exception('Previously detected quad now appears to be out of bounds?!?!')
-
-            if debug:
+            if debug: 
                 rect = (px, py), (average_size, average_size), 0
                 pts_ = [cv.boxPoints(rect).astype(np.int32)]
                 cv.polylines(debug_images[1], pts_, True, (0, 255, 0))
@@ -534,8 +533,15 @@ def find_macbeth(macbeth_img, macbeth_width, macbeth_height, macbeth_reflectance
             partitioned_checkers = []
             for cluster_boxes, fn in zip(partitioned_boxes, debug_fns):
                 partitioned_checkers.append(
-                    find_colorchecker(cluster_boxes, macbeth_original, fn,
-                                      debug=debug))
+                    find_colorchecker(boxes=cluster_boxes, 
+                                      image=macbeth_original,
+                                      expected_colors=expected_colors, 
+                                      macbeth_width=macbeth_width,
+                                      macbeth_height=macbeth_height,
+                                      macbeth_squares=macbeth_squares,
+                                      debug_filename=fn,
+                                      debug=debug
+                                      ))
 
             # use the colorchecker with the lowest error
             found_colorchecker = min(partitioned_checkers,
