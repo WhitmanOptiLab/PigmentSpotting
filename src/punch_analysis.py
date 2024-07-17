@@ -11,7 +11,7 @@ import numpy as np
 import cv2 as cv
 from cv2 import imshow, waitKey, imread, imwrite, IMREAD_GRAYSCALE
 
-DEBUG=True
+DEBUG=False
 SILENT=False
 
 def patch_analysis(pixelList):
