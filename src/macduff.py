@@ -19,6 +19,7 @@ from sys import stderr, argv
 from copy import copy
 import os
 import NEF_utils
+# from decimal import Decimal
 
 _root = os.path.dirname(os.path.realpath(__file__))
 
@@ -81,14 +82,39 @@ class Box2D:
     def rrect(self):
         return self.center, self.size, self.angle
 
+def crop_patch(center, radius, image):
+    """
+    Returns a circular patch of sample area
+    """
+    px, py = center
 
-def crop_patch(center, size, image):
-    """Returns mean color in intersection of `image` and `rectangle`."""
-    x, y = center - np.array(size)/2
-    w, h = size
-    x0, y0, x1, y1 = map(round, [x, y, x + w, y + h])
-    return image[int(max(y0, 0)): int(min(y1, image.shape[0])),
-                 int(max(x0, 0)): int(min(x1, image.shape[1]))]
+    patchmask = cv.circle(np.zeros(image.shape, np.uint8), (int(px),int(py)), int(radius), (1,1,1), -1)
+    
+    patch = image[np.max(patchmask, axis=2).astype(np.bool_)]
+    
+    return patch
+
+#
+# def crop_patch(center, size, image):
+#     """Old version of crop patch, grabs square relatice to centerpoint from image"""
+#     x, y = center - np.array(size) / 2
+#     print(f"center {x}, {y}")
+
+#     w, h = size
+#     print(f"unrounded: {Decimal(x)}, {Decimal(y)}, {Decimal(x + w)}, {Decimal(y + h)}")
+#     x0, y0, x1, y1 = map(round, [x, y, (x + w), (y + h)])
+
+#     print(f"Crop Patch Center: {center}, Size: {size}")
+#     print(f"Crop Patch Coordinates: x0={x0}, y0={y0}, x1={x1}, y1={y1}")
+#     print(f"Image Size: {image.shape}")
+
+#     patch = image[int(max(y0, 0)): int(min(y1, image.shape[0])),
+#                   int(max(x0, 0)): int(min(x1, image.shape[1]))]
+    
+#     print(f"Extracted Patch Size: {patch.shape} \n")
+    
+#     return patch
+
 
 def contour_average(contour, image):
     """Assuming `contour` is a polygon, returns the mean color inside it.
@@ -158,14 +184,14 @@ class ColorChecker:
 def find_colorchecker(boxes, image, expected_colors, macbeth_width, macbeth_height, macbeth_squares,debug_filename=None, use_patch_std=True,
                       debug=DEBUG):
 
-    points = np.array([[box.center[0], box.center[1]] for box in boxes])
+    points = np.array([[box.center[0], box.center[1]] for box in boxes]) 
     passport_box = cv.minAreaRect(points.astype('float32'))
-    (x, y), (w, h), a = passport_box
+    (x, y), (w, h), a = passport_box 
     box_corners = cv.boxPoints(passport_box)
-
-    # sort `box_corners` to be in order tl, tr, br, bl
+    # print("box corners: \n", box_corners)
     top_corners = sorted(enumerate(box_corners), key=lambda c: c[1][1])[:2]
     top_left_idx = min(top_corners, key=lambda c: c[1][0])[0]
+    # print("top left index: ",top_left_idx)
     box_corners = np.roll(box_corners, -top_left_idx, 0)
     tl, tr, br, bl = box_corners
 
@@ -186,7 +212,7 @@ def find_colorchecker(boxes, image, expected_colors, macbeth_width, macbeth_heig
               "" % (x, y, w, h, a), file=stderr)
 
     landscape_orientation = True  # `passport_box` is wider than tall
-    if norm(tr - tl) < norm(bl - tl):
+    if norm(tr - tl) < norm(bl - tl): # Orientation: Determines if the rectangle is in landscape orientation (wider than tall) or portrait orientation.
         landscape_orientation = False
         
     #Calculate observed width (and observed height if defined)
@@ -194,14 +220,16 @@ def find_colorchecker(boxes, image, expected_colors, macbeth_width, macbeth_heig
     
     min_point_dist = []
     
-    for point1 in points:
+    for point1 in points: # Minimum Distance Calculation: Computes the minimum distance between different points (box centers).
         for point2 in points:
             if (point1[0] != point2[0]) and (point1[1] != point2[1]):            
                 min_point_dist.append(norm(point1-point2))
     min_box_dist = min(min_point_dist)
     #print('Min distance between 2 boxes: ',min_box_dist)
-                      
+
     average_size = int(sum(min(box.size) for box in boxes) / len(boxes))
+    # Average Box Size: Calculates the average size of the boxes.
+
     if landscape_orientation:
         #calculate observed width as round(norm(box side length) / min distance)
         observed_width = round(norm(tr-tl)/min_box_dist)+1
@@ -222,7 +250,9 @@ def find_colorchecker(boxes, image, expected_colors, macbeth_width, macbeth_heig
             dy = (tr - tl)/(macbeth_height - 1)
         else:
             dy = 0
-        
+
+    if debug:
+        print("Observed width: ", observed_width)
 
     # calculate the averages for our oriented colorchecker
     fuzzy_dims = (macbeth_height, 2*macbeth_width - observed_width)
@@ -235,13 +265,18 @@ def find_colorchecker(boxes, image, expected_colors, macbeth_width, macbeth_heig
             center = tl + (x-(macbeth_width-observed_width))*dx + y*dy
 
             px, py = center
-            img_patch = crop_patch(center, [average_size]*2, image)
+            radius = (average_size - 3) / 2
+
+            img_patch = crop_patch(center, radius, image)
 
             if not landscape_orientation:
                 y = macbeth_height - 1 - y
 
             patch_points[y, x] = center
-            if img_patch.size != 0:
+            # center point half average size from the edge of the image
+            # if img_patch.size == ((average_size-3)**2)*3:
+            if ((px - radius) > 0) and ((px + radius) < image.shape[1])\
+                and ((py - radius) > 0) and ((py + radius) < image.shape[0]):
                 patch_values[y, x] = img_patch.mean(axis=(0, 1))
                 sum_of_patch_stds += img_patch.std(axis=(0, 1))
             elif x < macbeth_width - observed_width:
@@ -249,12 +284,14 @@ def find_colorchecker(boxes, image, expected_colors, macbeth_width, macbeth_heig
             elif x >= macbeth_width:
                 in_bounds = (in_bounds[0], x)
             else:
+
                 raise Exception('Previously detected quad now appears to be out of bounds?!?!')
 
             if debug:
-                rect = (px, py), (average_size, average_size), 0
-                pts_ = [cv.boxPoints(rect).astype(np.int32)]
-                cv.polylines(debug_images[1], pts_, True, (0, 255, 0))
+
+                center = (int(px), int(py))
+                radius = int(average_size / 2)
+                cv.circle(debug_images[1], center, radius, (0, 255, 0), thickness=2)
     if debug:
         cv.imwrite(debug_filename, np.vstack(debug_images))
 
