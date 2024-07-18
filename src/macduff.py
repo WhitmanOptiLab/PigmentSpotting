@@ -19,6 +19,7 @@ from sys import stderr, argv
 from copy import copy
 import os
 import NEF_utils
+# from decimal import Decimal
 
 _root = os.path.dirname(os.path.realpath(__file__))
 
@@ -27,11 +28,6 @@ MIN_RELATIVE_SQUARE_SIZE = 0.0001
 
 DEBUG = False
 #DEBUG = True
-
-
-MACBETH_WIDTH = 6
-MACBETH_HEIGHT = 1
-MACBETH_SQUARES = MACBETH_WIDTH * MACBETH_HEIGHT
 
 MAX_CONTOUR_APPROX = 500  # default was 7
 
@@ -45,12 +41,16 @@ MAX_CONTOUR_APPROX = 500  # default was 7
 
 
 #TODO: make path to color data an optional argument to find Macbeth function
-color_data = os.path.join(_root, 'color_data',
-                          'MacbethGreyscaleReflectances.csv')
 
-expected_colors = np.flip(np.loadtxt(color_data, delimiter=','), 1)
-expected_colors = expected_colors.reshape(MACBETH_HEIGHT, MACBETH_WIDTH, 3)
+def get_expected_colors(macbeth_width, macbeth_height, csv_name):
 
+    color_data = os.path.join(_root, 'color_data',
+                            csv_name)
+
+    expected_colors = np.flip(np.loadtxt(color_data, delimiter=','), 1)
+    expected_colors = expected_colors.reshape(macbeth_width, macbeth_height, 3)
+
+    return expected_colors
 
 # a class to simplify the translation from c++
 class Box2D:
@@ -82,14 +82,39 @@ class Box2D:
     def rrect(self):
         return self.center, self.size, self.angle
 
+def crop_patch(center, radius, image):
+    """
+    Returns a circular patch of sample area
+    """
+    px, py = center
 
-def crop_patch(center, size, image):
-    """Returns mean color in intersection of `image` and `rectangle`."""
-    x, y = center - np.array(size)/2
-    w, h = size
-    x0, y0, x1, y1 = map(round, [x, y, x + w, y + h])
-    return image[int(max(y0, 0)): int(min(y1, image.shape[0])),
-                 int(max(x0, 0)): int(min(x1, image.shape[1]))]
+    patchmask = cv.circle(np.zeros(image.shape, np.uint8), (int(px),int(py)), int(radius), (1,1,1), -1)
+    
+    patch = image[np.max(patchmask, axis=2).astype(np.bool_)]
+    
+    return patch
+
+#
+# def crop_patch(center, size, image):
+#     """Old version of crop patch, grabs square relatice to centerpoint from image"""
+#     x, y = center - np.array(size) / 2
+#     print(f"center {x}, {y}")
+
+#     w, h = size
+#     print(f"unrounded: {Decimal(x)}, {Decimal(y)}, {Decimal(x + w)}, {Decimal(y + h)}")
+#     x0, y0, x1, y1 = map(round, [x, y, (x + w), (y + h)])
+
+#     print(f"Crop Patch Center: {center}, Size: {size}")
+#     print(f"Crop Patch Coordinates: x0={x0}, y0={y0}, x1={x1}, y1={y1}")
+#     print(f"Image Size: {image.shape}")
+
+#     patch = image[int(max(y0, 0)): int(min(y1, image.shape[0])),
+#                   int(max(x0, 0)): int(min(x1, image.shape[1]))]
+    
+#     print(f"Extracted Patch Size: {patch.shape} \n")
+    
+#     return patch
+
 
 def contour_average(contour, image):
     """Assuming `contour` is a polygon, returns the mean color inside it.
@@ -122,7 +147,7 @@ def rotate_box(box_corners):
     return np.roll(box_corners, 1, 0)
 
 
-def check_colorchecker(values, expected_values=expected_colors):
+def check_colorchecker(values, expected_values):
     """Find deviation of colorchecker `values` from expected values."""
     diff = (values - expected_values[:, :values.shape[1]]).ravel(order='K')
     return sqrt(np.dot(diff, diff)) #/ sqrt(values.shape[1])
@@ -135,7 +160,7 @@ def check_colorchecker(values, expected_values=expected_colors):
 #     return check_colorchecker(lab_values, lab_expected)
 
 
-def draw_colorchecker(colors, centers, image, radius):
+def draw_colorchecker(colors, centers, image, radius, expected_colors):
     image = np.copy(image)
     for observed_color, expected_color, pt in zip(colors.reshape(-1, 3),
                                                   expected_colors.reshape(-1, 3),
@@ -156,17 +181,17 @@ class ColorChecker:
     def __str__(self):
         return "Color Checker: \n\terror:{error}, \n\tvalues:{values}, \n\treference={reference} \n\tlocations:{points}, \n\tsize:{size}".format(error=self.error, values=self.values, points=self.points, size=self.size, reference = self.reference)
 
-def find_colorchecker(boxes, image, debug_filename=None, use_patch_std=True,
+def find_colorchecker(boxes, image, expected_colors, macbeth_width, macbeth_height, macbeth_squares,debug_filename=None, use_patch_std=True,
                       debug=DEBUG):
 
-    points = np.array([[box.center[0], box.center[1]] for box in boxes])
+    points = np.array([[box.center[0], box.center[1]] for box in boxes]) 
     passport_box = cv.minAreaRect(points.astype('float32'))
-    (x, y), (w, h), a = passport_box
+    (x, y), (w, h), a = passport_box 
     box_corners = cv.boxPoints(passport_box)
-
-    # sort `box_corners` to be in order tl, tr, br, bl
+    # print("box corners: \n", box_corners)
     top_corners = sorted(enumerate(box_corners), key=lambda c: c[1][1])[:2]
     top_left_idx = min(top_corners, key=lambda c: c[1][0])[0]
+    # print("top left index: ",top_left_idx)
     box_corners = np.roll(box_corners, -top_left_idx, 0)
     tl, tr, br, bl = box_corners
 
@@ -187,7 +212,7 @@ def find_colorchecker(boxes, image, debug_filename=None, use_patch_std=True,
               "" % (x, y, w, h, a), file=stderr)
 
     landscape_orientation = True  # `passport_box` is wider than tall
-    if norm(tr - tl) < norm(bl - tl):
+    if norm(tr - tl) < norm(bl - tl): # Orientation: Determines if the rectangle is in landscape orientation (wider than tall) or portrait orientation.
         landscape_orientation = False
         
     #Calculate observed width (and observed height if defined)
@@ -195,22 +220,24 @@ def find_colorchecker(boxes, image, debug_filename=None, use_patch_std=True,
     
     min_point_dist = []
     
-    for point1 in points:
+    for point1 in points: # Minimum Distance Calculation: Computes the minimum distance between different points (box centers).
         for point2 in points:
             if (point1[0] != point2[0]) and (point1[1] != point2[1]):            
                 min_point_dist.append(norm(point1-point2))
     min_box_dist = min(min_point_dist)
     #print('Min distance between 2 boxes: ',min_box_dist)
-                      
+
     average_size = int(sum(min(box.size) for box in boxes) / len(boxes))
+    # Average Box Size: Calculates the average size of the boxes.
+
     if landscape_orientation:
         #calculate observed width as round(norm(box side length) / min distance)
         observed_width = round(norm(tr-tl)/min_box_dist)+1
 
         dx = (tr - tl)/(observed_width-1)
 
-        if MACBETH_HEIGHT > 1:
-            dy = (bl - tl)/(MACBETH_HEIGHT - 1)
+        if macbeth_height > 1:
+            dy = (bl - tl)/(macbeth_height - 1)
             
         else:
             dy = 0
@@ -219,43 +246,52 @@ def find_colorchecker(boxes, image, debug_filename=None, use_patch_std=True,
         
         dx = (bl-tl)/(observed_width-1)
     
-        if MACBETH_HEIGHT > 1:
-            dy = (tr - tl)/(MACBETH_HEIGHT - 1)
+        if macbeth_height > 1:
+            dy = (tr - tl)/(macbeth_height - 1)
         else:
             dy = 0
-        
+
+    if debug:
+        print("Observed width: ", observed_width)
 
     # calculate the averages for our oriented colorchecker
-    fuzzy_dims = (MACBETH_HEIGHT, 2*MACBETH_WIDTH - observed_width)
+    fuzzy_dims = (macbeth_height, 2*macbeth_width - observed_width)
     patch_values = np.empty(fuzzy_dims + (3,), dtype='float32')
     patch_points = np.empty(fuzzy_dims + (2,), dtype='float32')
     sum_of_patch_stds = np.array((0.0, 0.0, 0.0))
-    in_bounds = (0, 2*MACBETH_WIDTH - observed_width)
-    for x in range(2*MACBETH_WIDTH - observed_width):
-        for y in range(MACBETH_HEIGHT):
-            center = tl + (x-(MACBETH_WIDTH-observed_width))*dx + y*dy
+    in_bounds = (0, 2*macbeth_width - observed_width)
+    for x in range(2*macbeth_width - observed_width):
+        for y in range(macbeth_height):
+            center = tl + (x-(macbeth_width-observed_width))*dx + y*dy
 
             px, py = center
-            img_patch = crop_patch(center, [average_size]*2, image)
+            radius = (average_size - 3) / 2
+
+            img_patch = crop_patch(center, radius, image)
 
             if not landscape_orientation:
-                y = MACBETH_HEIGHT - 1 - y
+                y = macbeth_height - 1 - y
 
             patch_points[y, x] = center
-            if img_patch.size != 0:
+            # center point half average size from the edge of the image
+            # if img_patch.size == ((average_size-3)**2)*3:
+            if ((px - radius) > 0) and ((px + radius) < image.shape[1])\
+                and ((py - radius) > 0) and ((py + radius) < image.shape[0]):
                 patch_values[y, x] = img_patch.mean(axis=(0, 1))
                 sum_of_patch_stds += img_patch.std(axis=(0, 1))
-            elif x < MACBETH_WIDTH - observed_width:
+            elif x < macbeth_width - observed_width:
                 in_bounds = (x+1, in_bounds[1])
-            elif x >= MACBETH_WIDTH:
+            elif x >= macbeth_width:
                 in_bounds = (in_bounds[0], x)
             else:
+
                 raise Exception('Previously detected quad now appears to be out of bounds?!?!')
 
             if debug:
-                rect = (px, py), (average_size, average_size), 0
-                pts_ = [cv.boxPoints(rect).astype(np.int32)]
-                cv.polylines(debug_images[1], pts_, True, (0, 255, 0))
+
+                center = (int(px), int(py))
+                radius = int(average_size / 2)
+                cv.circle(debug_images[1], center, radius, (0, 255, 0), thickness=2)
     if debug:
         cv.imwrite(debug_filename, np.vstack(debug_images))
 
@@ -269,7 +305,7 @@ def find_colorchecker(boxes, image, debug_filename=None, use_patch_std=True,
         orient_1_error = float('inf')
         orient_2_error = float('inf')
             
-    if in_bounds[1] == 2*MACBETH_WIDTH - observed_width:
+    if in_bounds[1] == 2*macbeth_width - observed_width:
         orient_3_error = check_colorchecker(patch_values[:, -expected_colors.shape[1]:in_bounds[1]],
                                             expected_colors[:, :])
     
@@ -299,7 +335,7 @@ def find_colorchecker(boxes, image, debug_filename=None, use_patch_std=True,
         patch_points = patch_points[::, -expected_colors.shape[1]:]
 
     if use_patch_std:
-        error = sum_of_patch_stds.mean() / MACBETH_SQUARES
+        error = sum_of_patch_stds.mean() / macbeth_squares
     else:
         error = min(orient_1_error, orient_2_error)
 
@@ -384,9 +420,13 @@ def find_quad(src_contour, min_size, max_size=None, squariness=0.9, debug_image=
     return None
 
 
-def find_macbeth(macbeth_img, patch_size=None, is_passport=False, debug=DEBUG,
-                 min_relative_square_size=MIN_RELATIVE_SQUARE_SIZE):
-        
+def find_macbeth(macbeth_img, macbeth_width, macbeth_height, macbeth_reflectance_file , patch_size=None, is_passport=False, debug=DEBUG,
+                 min_relative_square_size=MIN_RELATIVE_SQUARE_SIZE, ):
+    
+    macbeth_squares = macbeth_width * macbeth_height
+
+    expected_colors = get_expected_colors(macbeth_height=macbeth_width , macbeth_width=macbeth_height, csv_name=macbeth_reflectance_file)
+
     macbeth_original = copy(macbeth_img)
     macbeth_split = cv.split(macbeth_img)
 
@@ -466,7 +506,7 @@ def find_macbeth(macbeth_img, patch_size=None, is_passport=False, debug=DEBUG,
 
     if contours:
         initial_quads = [find_quad(c, min_size, max_size) for c in contours]
-        if is_passport and len(initial_quads) <= MACBETH_SQUARES:
+        if is_passport and len(initial_quads) <= macbeth_squares:
             qs = [find_quad(c, min_size) for c in contours]
             qs = [x for x in qs if x is not None]
             initial_quads = [x for x in qs if is_right_size(x, patch_size)]
@@ -479,7 +519,7 @@ def find_macbeth(macbeth_img, patch_size=None, is_passport=False, debug=DEBUG,
             cv.imwrite('debug_quads2.png', show_quads)
             print("%d initial quads found", len(initial_quads), file=stderr)
 
-        if is_passport or (len(initial_quads) > MACBETH_SQUARES):
+        if is_passport or (len(initial_quads) > macbeth_squares):
             if debug:
                 print(" (probably a Passport)\n", file=stderr)
 
@@ -534,14 +574,22 @@ def find_macbeth(macbeth_img, patch_size=None, is_passport=False, debug=DEBUG,
                 print("\n", file=stderr)
 
             found_colorchecker = \
-                find_colorchecker(initial_boxes, macbeth_original, debug_img,
+                find_colorchecker(boxes= initial_boxes,
+                                  image= macbeth_original,
+                                  expected_colors= expected_colors,
+                                  macbeth_height= macbeth_height, 
+                                  macbeth_width= macbeth_width, 
+                                  macbeth_squares= macbeth_squares, 
+                                  debug_filename= debug_img,
                                   debug=debug)
 
         # render the found colorchecker
         image = draw_colorchecker(found_colorchecker.values,
                           found_colorchecker.points,
                           macbeth_img,
-                          found_colorchecker.size)
+                          found_colorchecker.size,
+                          expected_colors,
+                          )
 
         #debugging circle placement
 #        scale_percent = 10      
