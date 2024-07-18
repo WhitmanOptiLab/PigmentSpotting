@@ -70,7 +70,11 @@ def process_dataset(dataset_path,image_list, outfile, patch_size=None, punch_siz
 
         # Find macbeth color chart
         try:
-            macbeth_img, found_colorchecker = macduff.find_macbeth(image, patch_size)
+            macbeth_img, found_colorchecker = macduff.find_macbeth(image, 
+                                                                   macbeth_width=6,
+                                                                   macbeth_height=4,
+                                                                   macbeth_reflectance_file="NewChartReflectances.csv",
+                                                                   patch_size=patch_size)
         except:
             print("Error finding colorchecker in image " + imagefilename)
             raise
