@@ -67,21 +67,30 @@ def patch_analysis(pixelList):
     return np.mean(pixelList[:,1] / np.sum(pixelList, axis=1))
  
 
+REGION_KEY = "analysis region"
+INJECTION_KEY = "injection site"
+
 def analyze_image(img, annotations):
     # For each group, generate patch and call processing
 
     results = {}
 
     for group in annotations:
-        region = annotations[group]["analysis region"]
+        if REGION_KEY not in annotations[group]:
+            raise ValueError("Found annotation group '{0}' missing expected feature '{1}'.".format(group, REGION_KEY)
+        region = annotations[group][REGION_KEY]
         points = np.array([a for a in zip(region["all_points_x"], region["all_points_y"])], np.int32).reshape((-1,1,2))
         points = points // 2 #NEF interlacing means JPEG annotations are double the coordinates we expect
         patchmask = cv.fillConvexPoly(np.zeros(img.shape, np.int32), np.array(points), (1,1,1))
 
-        InjectionSite = annotations[group]["injection site"]
-        #Change this if you want the circle around the injection point to be bigger
-        ExclusionRadius = 20
-        patchmask = cv.circle(patchmask, (InjectionSite["cx"]//2, InjectionSite["cy"]//2), ExclusionRadius, (0,0,0), -1)
+        if INJECTION_KEY in annotations[group]:
+            InjectionSite = annotations[group]["injection site"]
+            #Change this if you want the circle around the injection point to be bigger
+            ExclusionRadius = 20
+            patchmask = cv.circle(patchmask, (InjectionSite["cx"]//2, InjectionSite["cy"]//2), ExclusionRadius, (0,0,0), -1)
+        elif len(annotations[group]) > 1:
+            raise ValueError("Found annotation group with unrecognized features. If including an injection point, make sure to use the label '{0}'".format(INJECTION_KEY))
+
         maskedregion = patchmask*img #img[np.array(patchmask, np.bool)]
         maskedregionpixellist = maskedregion[np.max(patchmask, axis=2).astype(np.bool)]
         if DEBUG:
