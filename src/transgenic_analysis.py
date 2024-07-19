@@ -77,7 +77,7 @@ def analyze_image(img, annotations):
 
     for group in annotations:
         if REGION_KEY not in annotations[group]:
-            raise ValueError("Found annotation group '{0}' missing expected feature '{1}'.".format(group, REGION_KEY)
+            raise ValueError("Found annotation group '{0}' missing expected feature '{1}'.".format(group, REGION_KEY))
         region = annotations[group][REGION_KEY]
         points = np.array([a for a in zip(region["all_points_x"], region["all_points_y"])], np.int32).reshape((-1,1,2))
         points = points // 2 #NEF interlacing means JPEG annotations are double the coordinates we expect
