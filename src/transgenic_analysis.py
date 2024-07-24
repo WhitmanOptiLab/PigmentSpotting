@@ -135,7 +135,7 @@ def process_dataset(dataset_path,image_list, outfile, patch_size=None):
 #        create full path for each image
         image_path = os.path.join(dataset_path, imagefilename)
 
-        image = imread(image_path)
+        image = NEF_utils.generic_imread(image_path)
         annotation_dict = get_annotations(imagefilename,dataset_path)
 
         if DEBUG:
@@ -148,10 +148,10 @@ def process_dataset(dataset_path,image_list, outfile, patch_size=None):
         # Find macbeth color chart
         try:
             macbeth_img, found_colorchecker = macduff.find_macbeth(image, 
-                                                                   patch_size=patch_size, 
-                                                                   macbeth_height=1, 
                                                                    macbeth_width=6, 
-                                                                   macbeth_reflectance_file="MacbethGreyscaleReflectances.csv")
+                                                                   macbeth_height=4, 
+                                                                   macbeth_reflectance_file="NewChartReflectances.csv",
+                                                                   patch_size=patch_size)
         except:
             print("Error finding colorchecker in image " + imagefilename)
             raise
@@ -196,7 +196,7 @@ def main():
     if DEBUG:
         print(imagelist)
     
-    process_dataset(dataset_path,imagelist, sys.argv[2], 285)
+    process_dataset(dataset_path,imagelist, sys.argv[2], 222)
     
 if __name__ == "__main__":
    main()
