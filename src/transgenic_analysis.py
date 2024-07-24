@@ -158,6 +158,10 @@ def process_dataset(dataset_path,image_list, outfile, patch_size=None):
 
         if DEBUG:
             print("Found color checker: \n", found_colorchecker)
+            
+        # still needs to be fixed  
+        found_colorchecker.values = found_colorchecker.values[::-1, :]
+        found_colorchecker.points = found_colorchecker.points[::-1, :]
 
         image = calibrate_image(image, found_colorchecker)
 
