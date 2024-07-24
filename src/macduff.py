@@ -89,31 +89,9 @@ def crop_patch(center, radius, image):
     px, py = center
 
     patchmask = cv.circle(np.zeros(image.shape, np.uint8), (int(px),int(py)), int(radius), (1,1,1), -1)
-    
     patch = image[np.max(patchmask, axis=2).astype(np.bool_)]
     
     return patch
-
-#
-# def crop_patch(center, size, image):
-#     """Old version of crop patch, grabs square relatice to centerpoint from image"""
-#     x, y = center - np.array(size) / 2
-#     print(f"center {x}, {y}")
-
-#     w, h = size
-#     print(f"unrounded: {Decimal(x)}, {Decimal(y)}, {Decimal(x + w)}, {Decimal(y + h)}")
-#     x0, y0, x1, y1 = map(round, [x, y, (x + w), (y + h)])
-
-#     print(f"Crop Patch Center: {center}, Size: {size}")
-#     print(f"Crop Patch Coordinates: x0={x0}, y0={y0}, x1={x1}, y1={y1}")
-#     print(f"Image Size: {image.shape}")
-
-#     patch = image[int(max(y0, 0)): int(min(y1, image.shape[0])),
-#                   int(max(x0, 0)): int(min(x1, image.shape[1]))]
-    
-#     print(f"Extracted Patch Size: {patch.shape} \n")
-    
-#     return patch
 
 
 def contour_average(contour, image):
@@ -150,15 +128,8 @@ def rotate_box(box_corners):
 def check_colorchecker(values, expected_values):
     """Find deviation of colorchecker `values` from expected values."""
     diff = (values - expected_values[:, :values.shape[1]]).ravel(order='K')
+    diff = diff[~np.isnan(diff)]
     return sqrt(np.dot(diff, diff)) #/ sqrt(values.shape[1])
-
-
-# def check_colorchecker_lab(values):
-#     """Converts to Lab color space then takes Euclidean distance."""
-#     lab_values = cv.cvtColor(values, cv.COLOR_BGR2Lab)
-#     lab_expected = cv.cvtColor(expected_colors, cv.COLOR_BGR2Lab)
-#     return check_colorchecker(lab_values, lab_expected)
-
 
 def draw_colorchecker(colors, centers, image, radius, expected_colors):
     image = np.copy(image)
@@ -174,7 +145,7 @@ def draw_colorchecker(colors, centers, image, radius, expected_colors):
 class ColorChecker:
     def __init__(self, values, reference, error, points, size):
         self.error = error
-        self.values = values
+        self.values = values 
         self.points = points
         self.reference = reference
         self.size = size
@@ -188,10 +159,8 @@ def find_colorchecker(boxes, image, expected_colors, macbeth_width, macbeth_heig
     passport_box = cv.minAreaRect(points.astype('float32'))
     (x, y), (w, h), a = passport_box 
     box_corners = cv.boxPoints(passport_box)
-    # print("box corners: \n", box_corners)
     top_corners = sorted(enumerate(box_corners), key=lambda c: c[1][1])[:2]
     top_left_idx = min(top_corners, key=lambda c: c[1][0])[0]
-    # print("top left index: ",top_left_idx)
     box_corners = np.roll(box_corners, -top_left_idx, 0)
     tl, tr, br, bl = box_corners
 
@@ -210,7 +179,7 @@ def find_colorchecker(boxes, image, expected_colors, macbeth_width, macbeth_heig
 
         print("Box:\n\tCenter: %f,%f\n\tSize: %f,%f\n\tAngle: %f\n" 
               "" % (x, y, w, h, a), file=stderr)
-
+ 
     landscape_orientation = True  # `passport_box` is wider than tall
     if norm(tr - tl) < norm(bl - tl): # Orientation: Determines if the rectangle is in landscape orientation (wider than tall) or portrait orientation.
         landscape_orientation = False
@@ -274,11 +243,13 @@ def find_colorchecker(boxes, image, expected_colors, macbeth_width, macbeth_heig
 
             patch_points[y, x] = center
             # center point half average size from the edge of the image
-            # if img_patch.size == ((average_size-3)**2)*3:
+
             if ((px - radius) > 0) and ((px + radius) < image.shape[1])\
                 and ((py - radius) > 0) and ((py + radius) < image.shape[0]):
-                patch_values[y, x] = img_patch.mean(axis=(0, 1))
+                extracted_color = img_patch.mean(axis=0)
+                patch_values[y, x] = extracted_color
                 sum_of_patch_stds += img_patch.std(axis=(0, 1))
+
             elif x < macbeth_width - observed_width:
                 in_bounds = (x+1, in_bounds[1])
             elif x >= macbeth_width:
@@ -288,10 +259,12 @@ def find_colorchecker(boxes, image, expected_colors, macbeth_width, macbeth_heig
                 raise Exception('Previously detected quad now appears to be out of bounds?!?!')
 
             if debug:
-
+                
+                # print(f"average color: {average_color}")
                 center = (int(px), int(py))
                 radius = int(average_size / 2)
-                cv.circle(debug_images[1], center, radius, (0, 255, 0), thickness=2)
+                cv.circle(debug_images[1], center, radius, extracted_color, thickness=-1)
+                cv.circle(debug_images[1], center, radius, (0,0,255), thickness=1)
     if debug:
         cv.imwrite(debug_filename, np.vstack(debug_images))
 
@@ -323,11 +296,11 @@ def find_colorchecker(boxes, image, expected_colors, macbeth_width, macbeth_heig
     if min_err == orient_2_error or min_err == orient_4_error:  # rotate by 180 degrees
         patch_values = patch_values[::-1, ::-1]
         patch_points = patch_points[::-1, ::-1]
-        trans_error = orient_4_error - orient_2_error
+        lr_err_diff = orient_4_error - orient_2_error
     else:
-        trans_error = orient_1_error - orient_3_error
+        lr_err_diff = orient_1_error - orient_3_error
         
-    if trans_error < 0:
+    if lr_err_diff < 0:
         patch_values = patch_values[::, :expected_colors.shape[1]]
         patch_points = patch_points[::, :expected_colors.shape[1]]
     else:
