@@ -230,9 +230,9 @@ def find_colorchecker(boxes, image, expected_colors, macbeth_width, macbeth_heig
     sum_of_patch_stds = np.array((0.0, 0.0, 0.0))
     in_bounds = (0, 2*macbeth_width - observed_width)
     for x in range(2*macbeth_width - observed_width):
-        for y in range(macbeth_height):
+        for y in reversed(range(macbeth_height)):
             center = tl + (x-(macbeth_width-observed_width))*dx + y*dy
-
+            # print(f"center = {center}, tl = {tl}, macbeth_width = {macbeth_width}, observed_width = {observed_width}")
             px, py = center
             radius = (average_size - 3) / 2
 
@@ -260,30 +260,28 @@ def find_colorchecker(boxes, image, expected_colors, macbeth_width, macbeth_heig
 
             if debug:
                 
-                # print(f"average color: {average_color}")
                 center = (int(px), int(py))
                 radius = int(average_size / 2)
                 cv.circle(debug_images[1], center, radius, extracted_color, thickness=-1)
                 cv.circle(debug_images[1], center, radius, (0,0,255), thickness=1)
     if debug:
         cv.imwrite(debug_filename, np.vstack(debug_images))
-
     # determine which orientation has lower error
     if in_bounds[0] == 0:
         orient_1_error = check_colorchecker(patch_values[:, :expected_colors.shape[1]], 
-                                            expected_colors[:, :])
+                                            expected_colors[:, :]) # orientation one: top left to top left
+        
         orient_2_error = check_colorchecker(patch_values[::-1, expected_colors.shape[1]-1::-1],
-                                            expected_colors[:, :])
+                                            expected_colors[:, :]) # orientation two: top left to bottom right
     else:
         orient_1_error = float('inf')
         orient_2_error = float('inf')
-            
     if in_bounds[1] == 2*macbeth_width - observed_width:
         orient_3_error = check_colorchecker(patch_values[:, -expected_colors.shape[1]:in_bounds[1]],
-                                            expected_colors[:, :])
+                                            expected_colors[:, :]) # orientation three: top left to top left shifted to left one
     
         orient_4_error = check_colorchecker(patch_values[::-1, -1:-(expected_colors.shape[1]+1):-1],
-                                            expected_colors[:, :])
+                                            expected_colors[:, :]) # orietation four: tope left to bottom right shifted right one
     else:
         orient_3_error = float('inf')
         orient_4_error = float('inf')
@@ -293,20 +291,20 @@ def find_colorchecker(boxes, image, expected_colors, macbeth_width, macbeth_heig
 
     min_err = min(orient_1_error, orient_2_error, orient_3_error, orient_4_error)
     
-    if min_err == orient_2_error or min_err == orient_4_error:  # rotate by 180 degrees
+    if min_err == orient_2_error or min_err == orient_4_error:  # rotate by 180 degrees if the rotated orientations have less error
         patch_values = patch_values[::-1, ::-1]
         patch_points = patch_points[::-1, ::-1]
         lr_err_diff = orient_4_error - orient_2_error
     else:
-        lr_err_diff = orient_1_error - orient_3_error
-        
-    if lr_err_diff < 0:
+        lr_err_diff = orient_1_error - orient_3_error # this should  be less than zero if orientation one has less error than 3
+    if lr_err_diff < 0: 
+        # print(f"lr_err_diff proc: {lr_err_diff}")
         patch_values = patch_values[::, :expected_colors.shape[1]]
         patch_points = patch_points[::, :expected_colors.shape[1]]
     else:
+        # print(f"error not proc")
         patch_values = patch_values[::, -expected_colors.shape[1]:]
         patch_points = patch_points[::, -expected_colors.shape[1]:]
-
     if use_patch_std:
         error = sum_of_patch_stds.mean() / macbeth_squares
     else:
@@ -325,7 +323,7 @@ def find_colorchecker(boxes, image, expected_colors, macbeth_width, macbeth_heig
                         points=patch_points,
                         size=average_size,
                         reference=expected_colors)
-
+    
 
 def angle_cos(p0, p1, p2):
     d1, d2 = (p0-p1).astype('float'), (p2-p1).astype('float')
