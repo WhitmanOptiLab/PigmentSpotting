@@ -221,17 +221,18 @@ def get_transformed_annotations(input_dict,transformationMatrix):
 
 def display_annotations(updated_dict,img):
     '''
-Input: dictionary (updated_dict) and image file (img)
-Output: returns both updated_dict and img 
-'''
+    Input: dictionary (updated_dict) and image file (img)
+    Output: returns both updated_dict and img 
+    '''
     for labelName in updated_dict:
         if updated_dict[labelName]['name'] == 'point':
             ptPair = (updated_dict[labelName]['cx'],updated_dict[labelName]['cy'])
             cv.circle(img,ptPair,5,(255,255,255),-1)
 
         if updated_dict[labelName]['name'] == 'rect':
-            ptPair = (updated_dict[labelName]['x'],updated_dict[labelName]['y'])
-            cv.rectangle(img,ptPair,5,(255,255,255),1)
+            tl = (updated_dict[labelName]['x'],updated_dict[labelName]['y'])
+            br = (tl[0] - updated_dict[labelName]["width"], tl[1] - updated_dict[labelName]["height"])
+            cv.rectangle(img,tl,br,(0,0,255), 10)
 
     return img
 
