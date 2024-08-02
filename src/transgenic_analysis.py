@@ -5,6 +5,7 @@ import json
 import macduff
 import NEF_utils
 import csv
+from JSON_functions import parse_annotation
 
 import numpy as np
 import cv2 as cv
@@ -48,7 +49,7 @@ def get_annotations(image_filename, dataset_path):
                     new_dict[label][attributes["feature"].lower()] = shape
 
     elif type(data[top_layer]["regions"]) == list: # new json format
-
+        
         for region in data[top_layer]["regions"]:
             delta = region["region_attributes"]["label"]
             if delta not in new_dict.keys():
@@ -136,7 +137,8 @@ def process_dataset(dataset_path,image_list, outfile, patch_size=None):
         image_path = os.path.join(dataset_path, imagefilename)
 
         image = NEF_utils.generic_imread(image_path)
-        annotation_dict = get_annotations(imagefilename,dataset_path)
+        annotation_dict = parse_annotation(imagefilename,dataset_path, group_attr="label", id_attr="feature")
+        print(annotation_dict)
 
         if DEBUG:
             print('\nAnnotations for file ' + imagefilename + ' in ' + dataset_path + ':')
