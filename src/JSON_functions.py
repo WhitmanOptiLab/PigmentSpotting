@@ -10,7 +10,6 @@ import sys
 
 
 
-
 def parse_annotation(image_name, project_dir, group_attr=None, id_attr=None):
     """
     This is a general purpose annotation parser, given the name of an image file, it will find the corresponding _labels.json and
@@ -42,9 +41,6 @@ def parse_annotation(image_name, project_dir, group_attr=None, id_attr=None):
     else:
         data_list = data[top_layer]['regions']
 
-    # annotations now in consistent format
-    # [{'shape_attributes':{'name': ___ , shape info...},'region_attributes':{}}]
-
     for annotation in data_list:
         if group_attr: # if an attribute to group by is specified
             attr = annotation['region_attributes'][group_attr]
@@ -62,69 +58,61 @@ def parse_annotation(image_name, project_dir, group_attr=None, id_attr=None):
 
     return new_dict
 
+# __ LEGACY JSON PARSER __
+# def get_annotations(image_filename,routing):
+#     '''
+#     this actually is only used for the vein images
+#     get_annotations(image_filename) returns a dictionary with the annotations for a given image
 
-
-
-
-
-
-
-
-
-def get_annotations(image_filename,routing):
-    '''
-    this actually is only used for the vein images
-    get_annotations(image_filename) returns a dictionary with the annotations for a given image
-
-    input: image file name(type=str), and routing information to parent folder of file_name
-    output: return 'new dict' (dictionary of important information) 
-    '''
-    print('image_filename: ',image_filename)
+#     input: image file name(type=str), and routing information to parent folder of file_name
+#     output: return 'new dict' (dictionary of important information) 
+#     '''
+#     print('image_filename: ',image_filename)
     
-    if image_filename[:-13] == '_labels.json':
-        image_filename = json_filename
+#     if image_filename[:-13] == '_labels.json':
+#         image_filename = json_filename
         
-    else:
-        base = os.path.splitext(image_filename)[0]
-#        print('Based Base: ',base)
-        json_filename = base + '_labels.json'
+#     else:
+#         base = os.path.splitext(image_filename)[0]
+# #        print('Based Base: ',base)
+#         json_filename = base + '_labels.json'
     
-    #elif:
-    #support for processing without JSON files?
+#     #elif:
+#     #support for processing without JSON files?
         
-    print('json_file: ',json_filename)
+#     print('json_file: ',json_filename)
     
-    json_full = os.path.join(routing,json_filename)
-    image_full = os.path.join(routing,image_filename)
-#    print('json_full: ',json_full)
-#    f = open(json_full,)
-    data = json.load(open(json_full,))
-    img = cv.imread(image_full,cv.IMREAD_COLOR)
-    assert not isinstance(img,type(None)), 'image not found'
+#     json_full = os.path.join(routing,json_filename)
+#     image_full = os.path.join(routing,image_filename)
+# #    print('json_full: ',json_full)
+# #    f = open(json_full,)
+#     data = json.load(open(json_full,))
+#     img = cv.imread(image_full,cv.IMREAD_COLOR)
+#     assert not isinstance(img,type(None)), 'image not found'
     
-    top_layer = [key for key in data.keys()][0]
-    num_annotations = data[top_layer]['regions'].keys()
+#     top_layer = [key for key in data.keys()][0]
+#     num_annotations = data[top_layer]['regions'].keys()
     
-    new_dict = {}
+#     new_dict = {}
     
-    print("Number of annotations: ",len(num_annotations))
+#     print("Number of annotations: ",len(num_annotations))
     
-    for key in num_annotations:
-        print('We are on key number: ',key)
-        keyInformation = data[top_layer]['regions'][key]['shape_attributes']
-        attributes = data[top_layer]['regions'][key]['region_attributes']
+#     for key in num_annotations:
+#         print('We are on key number: ',key)
+#         keyInformation = data[top_layer]['regions'][key]['shape_attributes']
+#         attributes = data[top_layer]['regions'][key]['region_attributes']
 
-        for attr_name in attributes:
-            if attr_name.startswith('label'):
-                labelName = attributes[attr_name]
+#         for attr_name in attributes:
+#             if attr_name.startswith('label'):
+#                 labelName = attributes[attr_name]
 
-        print('Label name is: ',labelName)
-        if labelName in new_dict:
-            raise ValueError("Multiple labels of the same type not currently supported.\nFound duplicate label " + labelName + " in " + json_filename)     
-        new_dict[labelName] = keyInformation                    
+#         print('Label name is: ',labelName)
+#         if labelName in new_dict:
+#             raise ValueError("Multiple labels of the same type not currently supported.\nFound duplicate label " + labelName + " in " + json_filename)     
+#         new_dict[labelName] = keyInformation                    
         
-#    print(json.dumps(new_dict, indent=4, sort_keys=False))
-    return new_dict
+# #    print(json.dumps(new_dict, indent=4, sort_keys=False))
+#     return new_dict
 
 def organize_JSONfile(json_file):
     '''

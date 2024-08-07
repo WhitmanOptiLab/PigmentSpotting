@@ -14,54 +14,6 @@ from cv2 import imshow, waitKey, imread, imwrite, IMREAD_GRAYSCALE
 DEBUG=False
 SILENT=True
 
-def get_annotations(image_filename, dataset_path):
-    if image_filename[:-13] == '_labels.json':
-        image_filename = json_filename
-        
-    else:
-        base = os.path.splitext(image_filename)[0]
-        json_filename = base + '_labels.json'
-    
-    json_full = os.path.join(dataset_path,json_filename)
-    image_full = os.path.join(dataset_path,image_filename)
-    data = json.load(open(json_full,))
-
-    top_layer = [key for key in data.keys()][0]
-    new_dict = {}
-
-    if type(data[top_layer]["regions"]) == dict: # old json format
-        
-        num_annotations = data[top_layer]['regions'].keys()
-    
-        for region in num_annotations:
-            attributes = data[top_layer]['regions'][region]['region_attributes']
-            for attr_name in attributes:
-                if attr_name.startswith('label'):
-                    labelName = attributes[attr_name]
-
-            new_dict[labelName] = {}
-
-        for region in num_annotations:
-            shape = data[top_layer]['regions'][region]['shape_attributes']
-            attributes = data[top_layer]['regions'][region]['region_attributes']
-            for label in new_dict:
-                if label == attributes['label']:
-                    new_dict[label][attributes["feature"].lower()] = shape
-
-    elif type(data[top_layer]["regions"]) == list: # new json format
-        
-        for region in data[top_layer]["regions"]:
-            delta = region["region_attributes"]["label"]
-            if delta not in new_dict.keys():
-                new_dict[delta] = {}
-            new_dict[delta][region["region_attributes"]["feature"]] = region["shape_attributes"]
-    
-    else:
-        
-        Exception(f"Incompatible json format: {json_filename}")
-
-    return new_dict
-
 def patch_analysis(pixelList):
     #Strength-of-green calculation for a list of pixels
     assert (len(np.shape(pixelList)) == 2) and (np.shape(pixelList)[1] == 3), "Internal Error: patch analysis argument invalid"
@@ -138,7 +90,6 @@ def process_dataset(dataset_path,image_list, outfile, patch_size=None):
 
         image = NEF_utils.generic_imread(image_path)
         annotation_dict = parse_annotation(imagefilename,dataset_path, group_attr="label", id_attr="feature")
-        print(annotation_dict)
 
         if DEBUG:
             print('\nAnnotations for file ' + imagefilename + ' in ' + dataset_path + ':')
