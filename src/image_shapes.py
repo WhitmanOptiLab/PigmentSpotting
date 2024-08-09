@@ -61,7 +61,22 @@ def get_petal_shape(im):
     background = kmeans[0][0]
     foreground_mask = cv2.bitwise_not(cv2.inRange(kmeans, background, background))
     #find the largest connectComponentMask to see
-    return foreground_mask
+
+    label_count, labels, stats, centroids = cv2.connectedComponentsWithStats(im, 4, cv2.CV_32S)
+
+    sizes = stats[:,-1]
+    
+    max_label = 1
+    
+    max_size = sizes[1]
+    for i in range(2, label_count):
+        if sizes[i] > max_size:
+            max_label = i
+            max_size = sizes[i]
+    petal_label = np.array([max_label])
+    petal = cv2.inRange(labels, petal_label, petal_label)
+
+    return petal
 
 def petal_shape_fromBB(petal_im,petal_filename,petal_image_path):
     '''
