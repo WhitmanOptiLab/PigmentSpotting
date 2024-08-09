@@ -2,11 +2,15 @@ import sys
 import os
 import cv2
 import numpy as np
-from skimage import io
+# from skimage import io
 import JSON_functions as JSONfunc
 from matplotlib import pyplot as plt
 import image_utilities as img_util
 
+
+"""
+tools for extracting shapes
+"""
 
 def get_image_kmeans(image, k):
     Z = image.reshape((-1,3))
@@ -144,7 +148,9 @@ def get_filtered_vein_shape(im):
 
 def get_vein_shape(im):
     blur = cv2.GaussianBlur(im, (5, 5), 0)
-    th, im_th = cv2.threshold(blur, 10, 255, cv2.THRESH_BINARY)
+    th, im_th = cv2.threshold(blur, 10, 255, cv2.THRESH_BINARY) # seperate light from dark look at threshold image later
+    # possibly cropping out the straght line?
+    
     label_count, labels, stats, centroids = cv2.connectedComponentsWithStats(im_th, 4, cv2.CV_32S)
     sizes = stats[:,-1]
     
@@ -170,7 +176,7 @@ def get_vein_shape(im):
 #    return petal
 
 def tobacco_analysis(image_filename,file_path):
-    im = cv2.imread(os.)
+    # im = cv2.imread(os.)
     croppedImg, new_dict = JSONfunc.img_crop(image_filename,file_path)
 #    cv2.grabCut()
     return img

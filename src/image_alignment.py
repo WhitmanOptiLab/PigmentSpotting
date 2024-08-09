@@ -7,8 +7,13 @@ from skimage import io
 import math
 import JSON_functions as JSONfunc
 import image_utilities as img_util
+from os import path, listdir
 
 def shapeStatistics(shape_image):
+    """
+    skew identified in different directions
+    orientation could use improvement
+    """
     moments = cv2.moments(shape_image)
     center = moments["m10"]/moments["m00"], moments["m01"]/moments["m00"]
     area = moments["m00"]
@@ -51,7 +56,7 @@ def match_images(petal_image, vein_image, s1, s2):
     criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, number_of_iterations,  termination_eps)
     AngleDifference = VeinAngle - PetalAngle
     warp_matrix = cv2.getRotationMatrix2D(PetalCenter, AngleDifference, scale).astype(np.float32)
-    warp_matrix[0][2] += VeinCenter[0]-PetalCenter[0]
+    warp_matrix[0][2] += VeinCenter[0]-PetalCenter[0] # translation offset
     warp_matrix[1][2] += VeinCenter[1]-PetalCenter[1]
     #Getting annotations; recreate new dimensional conditions
 
@@ -62,6 +67,7 @@ def match_images(petal_image, vein_image, s1, s2):
 #    io.show()
     try:
         (cc, final_warp) = cv2.findTransformECC(s1,s2,warp_matrix, cv2.MOTION_AFFINE, criteria, inputMask=None, gaussFiltSize=5)
+        # find different options for this function, understand 
     except (cv2.error):
         cc = 0
 
@@ -88,47 +94,90 @@ def align_images(petal_img, vein_img, raw_vein=True):
         vein_shape = shapes.get_vein_shape(vein_img)
     else:
         vein_shape = shapes.get_filtered_vein_shape(vein_img)
+
     #also take forward the 'warp_matrix' to use for annotations transformations
-    vein_aligned,warp_matrix = match_images(petal_img, vein_img, petal_shape,vein_shape)
+    vein_aligned,warp_matrix = match_images(petal_img, vein_img, petal_shape,vein_shape) 
+    # vein shape and petal shape are the masks of each petal 
     return petal_shape, vein_aligned, warp_matrix
 
           
+def get_file_pairs(dir):
+    dataset = listdir(dir)
+    fileNameComponents = []
+    for file_name in dataset:
+        fileNameComponents.append(file_name.split('_'))
+    vein_petal_pairs = []
+    for file_name_1 in fileNameComponents:
+        for file_name_2 in fileNameComponents:
+            if (file_name_1[0] == file_name_2[0]) and (file_name_1[1] != file_name_2[1]) and (file_name_1[2] == file_name_2[2] and len(file_name_1) < 5 and len(file_name_2) < 5):
+                if (file_name_1[1] == 'Vein'):
+                    vein_petal_pair = ('_'.join(file_name_1), '_'.join(file_name_2))
+                    vein_petal_pairs.append(vein_petal_pair)
+    return vein_petal_pairs
+
+    
+
+
 def main():
     
-    if (len(sys.argv) < 3):
-        raise ValueError("Usage: image_alignment.py <petal image> <vein image>")
+    if (len(sys.argv) != 2):
+        raise ValueError("Usage: image_alignment.py <image_directory>")
     
-    #petal initalization + annotation processing
-    petal_image, new_dict = JSONfunc.img_crop(sys.argv[1])
-    petal_x = new_dict["bounding_box"]['x']
-    petal_y = new_dict["bounding_box"]['y']
-    
-    petal_warp_matrix = [[1,0,int(-petal_x)],[0,1,int(-petal_y)]]
-    updated_dict = JSONfunc.get_transformed_annotations(new_dict,petal_warp_matrix)
-    
-    #vein initalization for image (vein_image) and dictionary (new_vein_dict)
-    new_vein_dict = JSONfunc.get_annotations(sys.argv[2])
-    vein_image = cv2.imread(sys.argv[2],0)
-    #get 'warp_matrix' from 'align_images' function and set = to 'vein_warp_matrix'
-    petal_shape, vein_aligned, warp_matrix = align_images(petal_img, vein_img, petal_filename, petal_image_path)
-    #vein annotations
-    inv_warp_matrix = cv2.invertAffineTransform(warp_matrix) 
-    updated_vein_dict = JSONfunc.get_transformed_annotations(new_vein_dict,inv_warp_matrix)
-    
-    masked_petal = cv2.bitwise_and(petal_image,cv2.cvtColor(petal_shape, cv2.COLOR_GRAY2BGR),)    
-    if (input("Show overlaid images? (y/n): ") == 'y'):    
-        combined = combine_imgs(masked_petal, vein_aligned)
-        combined = JSONfunc.display_annotations(updated_dict,combined)
-        combined = JSONfunc.display_annotations(updated_vein_dict,combined)        #vein annotations
-        inv_warp_matrix = cv2.invertAffineTransform(warp_matrix) 
-        updated_vein_dict = JSONfunc.get_transformed_annotations(new_vein_dict,inv_warp_matrix)
-        io.imshow(combined)
-        io.show()
+    image_directory = sys.argv[1]
+
+    image_pairs = get_file_pairs(image_directory)
+
+    show = input("Show overlaid images? (y/n): ")
+
+    for pair in image_pairs:
+
+        if "vein" in pair[0].lower():
+            vein_img_filename = pair[0]
+            petal_img_filename = pair[1]
+        else:
+            vein_img_filename = pair[1]
+            petal_img_filename = pair[0]
+
+        petal_image, petal_annotation = JSONfunc.img_crop(petal_img_filename, image_directory)
         
-    petal_outfile = sys.argv[1][:sys.argv[1].rfind('.')] + "_pca" + sys.argv[1][sys.argv[1].rfind('.'):]
-    cv2.imwrite(petal_outfile, pca.pca_to_grey(petal_image, petal_shape, True))
-    vein_outfile = sys.argv[2][:sys.argv[2].rfind('.')] + "_aligned" + sys.argv[2][sys.argv[2].rfind('.'):]
-    cv2.imwrite(vein_outfile, vein_aligned)
+        petal_x = petal_annotation["bounding_box"]["x"]
+        petal_y = petal_annotation["bounding_box"]["y"]
+
+
+        petal_warp_matrix = [[1,0,int(-petal_x)],[0,1,int(-petal_y)]] # adjust the petal annotation
+
+        petal_annotation_t = JSONfunc.get_transformed_annotations(petal_annotation, petal_warp_matrix)
+
+        #vein initalization for image (vein_image) and dictionary (new_vein_dict)
+
+        vein_annotation = JSONfunc.parse_annotation(vein_img_filename, image_directory, group_attr="label")
+        vein_image = cv2.imread(path.join(image_directory, vein_img_filename),0)
+
+        #get 'warp_matrix' from 'align_images' function and set = to 'vein_warp_matrix'
+
+        petal_shape, vein_aligned, warp_matrix = align_images(petal_image, vein_image)
+
+        inv_warp_matrix = cv2.invertAffineTransform(warp_matrix) 
+        
+        vein_annotation_t = JSONfunc.get_transformed_annotations(vein_annotation,inv_warp_matrix)
+
+        #vein annotations
+
+        masked_petal = cv2.bitwise_and(petal_image,cv2.cvtColor(petal_shape, cv2.COLOR_GRAY2BGR),) 
+           
+        if (show == "y"):    
+            combined = combine_imgs(masked_petal, vein_aligned)
+            combined = JSONfunc.display_annotations(petal_annotation_t,combined)
+            combined = JSONfunc.display_annotations(vein_annotation_t,combined)        #vein annotations
+            inv_warp_matrix = cv2.invertAffineTransform(warp_matrix) 
+            # updated_vein_dict = JSONfunc.get_transformed_annotations(vein_annotation,inv_warp_matrix)
+            io.imshow(combined)
+            io.show()
+            
+        petal_outfile = petal_img_filename[:petal_img_filename.rfind('.')] + "_pca" + petal_img_filename[petal_img_filename.rfind('.'):]
+        cv2.imwrite(petal_outfile, pca.pca_to_grey(petal_image, petal_shape, True))
+        vein_outfile = vein_img_filename[:vein_img_filename.rfind('.')] + "_aligned" + vein_img_filename[vein_img_filename.rfind('.'):]
+        cv2.imwrite(vein_outfile, vein_aligned)
 
     
 if __name__ == "__main__":

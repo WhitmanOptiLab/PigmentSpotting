@@ -29,7 +29,7 @@ def parse_dataset(dataset_path):
             if (file_name_1[0] == file_name_2[0]) and (file_name_1[1] != file_name_2[1]) and (file_name_1[2] == file_name_2[2] and len(file_name_1) < 5 and len(file_name_2) < 5):
                 if (file_name_1[1] == 'Vein'):
                     vein_petal_pair = ('_'.join(file_name_1), '_'.join(file_name_2))
-                    vein_petal_pairs.append(vein_petal_pair)    
+                    vein_petal_pairs.append(vein_petal_pair)
     return vein_petal_pairs
 
 #function 2
@@ -48,7 +48,7 @@ def process_dataset(dataset_path,new_dataset_path,vein_petal_pairs):
         petal_image_path = os.path.join(dataset_path, petal_image_name)
 
         vein_image = imread(vein_image_path, IMREAD_GRAYSCALE)
-        vein_dict = JSONfunc.get_annotations(vein_image_name,dataset_path)
+        vein_dict = JSONfunc.parse_annotation(vein_image_name,dataset_path, group_attr='label')
         print('\nThis is our vein_dict:')
         print(json.dumps(vein_dict, indent=4, sort_keys=False))    
         
@@ -66,6 +66,14 @@ def process_dataset(dataset_path,new_dataset_path,vein_petal_pairs):
 #        _, vein_aligned_image,_ = image_alignment.align_images(petal_image, petal_image, petal_image_name, petal_image_path)
         
         _, vein_aligned_image,_ = image_alignment.align_images(petal_image, vein_image)
+
+        """
+        - shape detection
+        we dont always get a shape mask which actually represents the vein image
+        - 
+        
+        
+        """
 
         pca_image, spot_results = spot_detection.get_predictions(petal_image, "_", dump_to_file= False)
         vein_image_filtered = vein_filtering.vein_enhance(vein_image)
@@ -89,7 +97,7 @@ def main():
         raise ValueError("Usage: pipeline_script.py <Path to dataset> <Path to directory for proecessed data>")
 #    process_dataset(sys.argv[1], sys.argv[2])
     dataset_path = sys.argv[1]
-
+    print(dataset_path)
     vein_petal_pairs = parse_dataset(dataset_path)
     
 #    #final send w/new_dataset_path and vein_petal_pairs
