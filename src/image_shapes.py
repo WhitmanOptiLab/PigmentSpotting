@@ -2,7 +2,7 @@ import sys
 import os
 import cv2
 import numpy as np
-# from skimage import io
+from skimage import io
 import JSON_functions as JSONfunc
 from matplotlib import pyplot as plt
 import image_utilities as img_util
@@ -61,7 +61,22 @@ def get_petal_shape(im):
     background = kmeans[0][0]
     foreground_mask = cv2.bitwise_not(cv2.inRange(kmeans, background, background))
     #find the largest connectComponentMask to see
-    return foreground_mask
+
+    label_count, labels, stats, centroids = cv2.connectedComponentsWithStats(foreground_mask, 4, cv2.CV_32S)
+
+    sizes = stats[:,-1]
+    
+    max_label = 1
+    
+    max_size = sizes[1]
+    for i in range(2, label_count):
+        if sizes[i] > max_size:
+            max_label = i
+            max_size = sizes[i]
+    petal_label = np.array([max_label])
+    petal = cv2.inRange(labels, petal_label, petal_label)
+
+    return petal
 
 def petal_shape_fromBB(petal_im,petal_filename,petal_image_path):
     '''
@@ -147,13 +162,15 @@ def get_filtered_vein_shape(im):
     return im_th
 
 def get_vein_shape(im):
+
+    im = img_util.remove_edge(im) # crop out any edges that might mess up shape recognition
+
     blur = cv2.GaussianBlur(im, (5, 5), 0)
     th, im_th = cv2.threshold(blur, 10, 255, cv2.THRESH_BINARY) # seperate light from dark look at threshold image later
-    # possibly cropping out the straght line?
     
     label_count, labels, stats, centroids = cv2.connectedComponentsWithStats(im_th, 4, cv2.CV_32S)
     sizes = stats[:,-1]
-    
+
     max_label = 1
     
     max_size = sizes[1]
@@ -163,17 +180,8 @@ def get_vein_shape(im):
             max_size = sizes[i]
     vein_label = np.array([max_label])
     petal = cv2.inRange(labels, vein_label, vein_label)
-    return petal
 
-#    img2 = np.zeros(labels.shape)
-#    img2[labels == max_label] = 255
-#    cv2.imshow("Biggest component", img2)
-#    cv2.waitKey()
-#    return label_count,labels
-    #Assume that the petal is centered in the image
-#    vein_label = np.array([labels[labels.shape[0]//2][labels.shape[1]//2]])
-#    petal = cv2.inRange(labels, vein_label, vein_label)
-#    return petal
+    return petal
 
 def tobacco_analysis(image_filename,file_path):
     # im = cv2.imread(os.)

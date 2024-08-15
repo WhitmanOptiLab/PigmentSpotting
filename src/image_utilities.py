@@ -54,3 +54,48 @@ def make_bw(img):
     new_image = np.zeros(img.shape, img.dtype)
     new_image = np.clip(~img, 0, 1)*255
     return new_image
+
+def remove_edge(img):
+    """
+    This function removes an edge present in many of the images, which causes shape detection to go awry if
+    the petal touches the edge.
+
+    Args:
+    img: the full vein image in color
+
+    Returns: image with the left edge cut out
+    """
+
+    dst = cv2.Canny(img, 50, 200, None, 3) # detect edges in image
+    linesP = cv2.HoughLinesP(dst, 1, np.pi / 180, 100, 20, 100) # detect lines within image
+    longest_line = None
+
+    if linesP is not None:
+        longest_line = max(linesP, key = \
+                           lambda line : ((line[0][2] - line[0][0])**2 + (line[0][3] - line[0][1])**2)**(1/2))
+
+    if longest_line is not None:
+        line_angle = np.degrees(np.arctan2((longest_line[0][1] - longest_line[0][3]) , (longest_line[0][0] - longest_line[0][2])))
+        
+        if line_angle == 90.0:
+            center_vertical = img.shape[1]//2
+
+            if longest_line[0][0] < center_vertical or longest_line[0][2] < center_vertical: # on left side
+                pts = np.array([
+                        (0,0),
+                        (0,img.shape[0]),
+                        (longest_line[0][2], img.shape[0]),
+                        (longest_line[0][0], 0)
+                    ], np.int32)
+            else: # if on right side
+                pts = np.array([
+                        (longest_line[0][2], img.shape[0]),
+                        (longest_line[0][0], 0),
+                        (img.shape[1], 0),
+                        (img.shape[1], img.shape[0])
+                    ], np.int32)  
+                
+                # Fill the polygon
+            cv2.fillPoly(img, [pts], 0)
+    
+    return img
