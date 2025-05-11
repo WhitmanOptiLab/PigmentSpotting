@@ -168,3 +168,7 @@ images/SampleDataSet/F2P39_Vein_Side2_200624.jpg
 images/SampleDataSet/F3P63_Spot_Center_200707.JPG
 images/SampleDataSet/F3P63_Vein_Center_200710.jpg
 src/pipline_script_test.ipynb
+
+
+keypointsrcnn_weights*.pth
+*.png
