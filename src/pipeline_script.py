@@ -48,7 +48,7 @@ def process_dataset(dataset_path,new_dataset_path,vein_petal_pairs):
         petal_image_path = os.path.join(dataset_path, petal_image_name)
 
         vein_image = imread(vein_image_path, IMREAD_GRAYSCALE)
-        vein_dict = JSONfunc.parse_annotation(vein_image_name,dataset_path, group_attr='label')
+        vein_dict = JSONfunc.parse_annotation(vein_image_name,dataset_path, group_attr='label') #error spotted here
         print('\nThis is our vein_dict:')
         print(json.dumps(vein_dict, indent=4, sort_keys=False))    
         
@@ -62,8 +62,8 @@ def process_dataset(dataset_path,new_dataset_path,vein_petal_pairs):
         petal_image, petal_dict=JSONfunc.img_crop(petal_image_name,dataset_path)
         print('\nThis is our petal_dict:')
         print(json.dumps(petal_dict, indent=4, sort_keys=False))
-#        petal_image = imread(petal_image_path,IMREAD_GRAYSCALE)
-#        _, vein_aligned_image,_ = image_alignment.align_images(petal_image, petal_image, petal_image_name, petal_image_path)
+        #petal_image = imread(petal_image_path,IMREAD_GRAYSCALE)
+        #_, vein_aligned_image,_ = image_alignment.align_images(petal_image, petal_image, petal_image_name, petal_image_path)
         
         _, vein_aligned_image,_ = image_alignment.align_images(petal_image, vein_image)
 
@@ -75,7 +75,7 @@ def process_dataset(dataset_path,new_dataset_path,vein_petal_pairs):
         
         """
 
-        pca_image, spot_results = spot_detection.get_predictions(petal_image, "_", dump_to_file= False)
+        pca_image, spot_results = spot_detection.get_predictions(petal_image, "_", dump_to_file= True)
         vein_image_filtered = vein_filtering.vein_enhance(vein_image)
         vein_image_filtered = vein_filtering.vein_enhance(vein_aligned_image)*255 
 
@@ -102,8 +102,9 @@ def main():
     
 #    #final send w/new_dataset_path and vein_petal_pairs
     new_dataset_path = sys.argv[2]
-    
+    print("starting processing dataset...")
     process_dataset(dataset_path,new_dataset_path,vein_petal_pairs)
+    print("finished processing dataset.")
     
 if __name__ == "__main__":
    main()

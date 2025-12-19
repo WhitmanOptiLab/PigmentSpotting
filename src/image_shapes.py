@@ -13,6 +13,7 @@ tools for extracting shapes
 """
 
 def get_image_kmeans(image, k):
+    image = image.get()
     Z = image.reshape((-1,3))
     Z = np.float32(Z)
     criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0)
@@ -44,7 +45,7 @@ def flood_fill(im):
     mask = np.zeros((h+2, w+2), np.uint8)
 
     # Floodfill from point (0, 0)
-    cv2.floodFill(im_floodfill, mask, (0,0), 255);
+    cv2.floodFill(im_floodfill, mask, (0,0), 255)
 
     # Invert floodfilled image
     im_floodfill_inv = cv2.bitwise_not(im_floodfill)
@@ -53,6 +54,7 @@ def flood_fill(im):
 
 
 def get_petal_shape(im):
+    #candiate for gpu acceleration
     #Convert image to HSV color format for easier clustering
     im = cv2.GaussianBlur(im, (5, 5), 0)
     im = cv2.cvtColor(im, cv2.COLOR_RGB2HSV)
@@ -86,6 +88,7 @@ output: focused petal image (foreground) with everything else filtered out (back
     img_name = 'F1P111_Spot_Side2_200730.JPG'
     img_location = '/home/rajt/Desktop/Pipeline_Dataset_Test'
     test_img = cv2.imread(os.path.join(img_location,img_name))
+    test_img = cv2.UMat(test_img) #gpu acceleration
         
     new_dict = JSONfunc.get_annotations(img_name,img_location)
     
@@ -108,6 +111,7 @@ output: focused petal image (foreground) with everything else filtered out (back
     print(rect)
         
     whole_image = cv2.imread(petal_image_path)
+    whole_image = cv2.UMat(whole_image) #gpu acceleration
     mask = np.zeros(whole_image.shape[:2],np.uint8)
     mask = foreground_mask
     print(whole_image.shape)
@@ -154,7 +158,7 @@ def get_filtered_vein_shape(im):
     mask = np.zeros((h+2, w+2), np.uint8)
 
     # Floodfill from point (0, 0)
-    cv2.floodFill(im_floodfill, mask, (0,0), 255);
+    cv2.floodFill(im_floodfill, mask, (0,0), 255)
 
     # Invert floodfilled image
     im_floodfill_inv = cv2.bitwise_not(im_floodfill)
@@ -162,7 +166,7 @@ def get_filtered_vein_shape(im):
     return im_th
 
 def get_vein_shape(im):
-
+    #candiate for gpu acceleration
     im = img_util.remove_edge(im) # crop out any edges that might mess up shape recognition
 
     blur = cv2.GaussianBlur(im, (5, 5), 0)
@@ -192,10 +196,13 @@ def tobacco_analysis(image_filename,file_path):
 
 def main():
 #    img_name = '/home/rajt/Desktop/Pipeline_Dataset_Test/F1P115_Vein_Side1_200802.jpg'
-    img_name = '/home/rajt/Desktop/Ex_Tobacco_Data/5-20_leaf11_back.NEF'    
-    im = cv2.imread(img_name,1)
-#    print(im.shape)
+    #img_name = '/home/paxto/Desktop/Code/Capstone/PigmentSpotting/PigmentSpotting/data/Pipeline_Dataset_Test/F1P111_Vein_Center_200731.jpg' 
+    img_name = r'C:\Users\paxto\Desktop\Code\Capstone\PigmentSpotting\PigmentSpotting\example_dataset\F1P111_Spot_Side1_200730.JPG'
+    im = cv2.imread(img_name)
+    print(im.shape)
     big_im = cv2.resize(im, (0,0), fx=2, fy=2)
+    petal_shape = get_petal_shape(im)
+    #cv2.imshow('petal shape',petal_shape)
     cv2.imshow('image',big_im)
     cv2.waitKey(0)
 

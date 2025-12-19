@@ -6,6 +6,7 @@ import image_shapes as shapes
 from skimage import io
 
 def pca_to_grey(image, mask, inverted=True):
+    image = image.get()
     x,y,z = image.shape
     mat = image.reshape([x*y,z])
     filter_array = mask.reshape([x*y])
@@ -70,6 +71,7 @@ if __name__ == "__main__":
         sys.exit(1)
     petal_image = cv2.imread(sys.argv[1])
     petal_shape = shapes.get_petal_shape(petal_image)
+    cv2.imshow('petal shape',petal_shape)
     result = pca_to_grey(petal_image, petal_shape, True)
     if len(sys.argv) > 2:
         cv2.imwrite(sys.argv[2], result)
