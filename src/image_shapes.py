@@ -54,7 +54,6 @@ def flood_fill(im):
 
 
 def get_petal_shape(im):
-    #candiate for gpu acceleration
     #Convert image to HSV color format for easier clustering
     im = cv2.GaussianBlur(im, (5, 5), 0)
     im = cv2.cvtColor(im, cv2.COLOR_RGB2HSV)
@@ -88,7 +87,6 @@ output: focused petal image (foreground) with everything else filtered out (back
     img_name = 'F1P111_Spot_Side2_200730.JPG'
     img_location = '/home/rajt/Desktop/Pipeline_Dataset_Test'
     test_img = cv2.imread(os.path.join(img_location,img_name))
-    test_img = cv2.UMat(test_img) #gpu acceleration
         
     new_dict = JSONfunc.get_annotations(img_name,img_location)
     
@@ -111,7 +109,6 @@ output: focused petal image (foreground) with everything else filtered out (back
     print(rect)
         
     whole_image = cv2.imread(petal_image_path)
-    whole_image = cv2.UMat(whole_image) #gpu acceleration
     mask = np.zeros(whole_image.shape[:2],np.uint8)
     mask = foreground_mask
     print(whole_image.shape)
@@ -166,7 +163,6 @@ def get_filtered_vein_shape(im):
     return im_th
 
 def get_vein_shape(im):
-    #candiate for gpu acceleration
     im = img_util.remove_edge(im) # crop out any edges that might mess up shape recognition
 
     blur = cv2.GaussianBlur(im, (5, 5), 0)
