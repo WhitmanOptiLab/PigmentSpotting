@@ -78,7 +78,8 @@ def base_edge(petal_img, vein_img, vein_annotation):
     ])
 
     intersection_points = []
-    
-    
 
+def linearFit():
+    #based on points near to the bottom vein point, perform a linear fit to determine the base edge, then cut to fit
     pass
+
