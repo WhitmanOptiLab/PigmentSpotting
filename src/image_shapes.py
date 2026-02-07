@@ -13,7 +13,6 @@ tools for extracting shapes
 """
 
 def get_image_kmeans(image, k):
-    image = image.get()
     Z = image.reshape((-1,3))
     Z = np.float32(Z)
     criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0)

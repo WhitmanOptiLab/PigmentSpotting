@@ -98,6 +98,7 @@ def img_crop(image_filename,file_path):
     print(image_full)
     #read the image
     img = cv.imread(image_full,cv.IMREAD_COLOR) #think this is altering the colors.
+    print('image type:', type(img))
     #img = cv.UMat(img) #gpu acceleration
     img = cv.cvtColor(img, cv.COLOR_BGR2RGB) #possible fix for color issue. fixed.
     assert not isinstance(img,type(None)), 'image not found'
@@ -118,7 +119,6 @@ def img_crop(image_filename,file_path):
 
     else:
         raise ValueError("Image crop failed: \n  Annotation key " + crop_key + " not found in annotations file for " + image_filename)
-
     return croppedImg, new_dict
 
 

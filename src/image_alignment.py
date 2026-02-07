@@ -45,8 +45,7 @@ def shapeStatistics(shape_image):
         return (center, area, angle, length, width)
 
 def match_images(petal_image, vein_image, s1, s2):
-    petal_image_cpu = petal_image.get() 
-    sz = petal_image_cpu.shape
+    sz = petal_image.shape
     #Consruct an initial guess of the transformation required to align the two images
     (PetalCenter, PetalArea, PetalAngle, PetalLength, PetalWidth) = shapeStatistics(s1)
     # print(f"petal stats: center = {PetalCenter}, area = {PetalArea}, angle = {PetalAngle}")
@@ -167,7 +166,6 @@ def main():
         #get 'warp_matrix' from 'align_images' function and set = to 'vein_warp_matrix'
 
         #perpenducular_cut = img_key.perpendicular_cut(petal_image, vein_image, vein_annotation)
-        print("Petal image type:", petal_image.dtype)
         petal_shape, vein_aligned, warp_matrix = align_images(petal_image, vein_image)
         img_with_keypoints = img_key.add_keypoints(petal_image, vein_image)
         if show == "y":

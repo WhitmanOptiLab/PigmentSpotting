@@ -65,8 +65,6 @@ def remove_edge(img):
 
     Returns: image with the left edge cut out
     """
-    #reconvert img
-    img = img.get()
     dst = cv2.Canny(img, 50, 200, None, 3) # detect edges in image
     linesP = cv2.HoughLinesP(dst, 1, np.pi / 180, 100, 20, 100) # detect lines within image
     longest_line = None
