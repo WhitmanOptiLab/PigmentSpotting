@@ -166,9 +166,13 @@ def main():
 
         #get 'warp_matrix' from 'align_images' function and set = to 'vein_warp_matrix'
 
+        #perpenducular_cut = img_key.perpendicular_cut(petal_image, vein_image, vein_annotation)
+        print("Petal image type:", petal_image.dtype)
         petal_shape, vein_aligned, warp_matrix = align_images(petal_image, vein_image)
         img_with_keypoints = img_key.add_keypoints(petal_image, vein_image)
         if show == "y":
+            #io.imshow(perpenducular_cut)
+            #io.show()
             io.imshow(img_with_keypoints)
             io.show()
             io.imshow(petal_shape)
