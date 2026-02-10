@@ -148,7 +148,7 @@ def straighten_edge(image, petal_mask, edge_points, edge_type, bounds, keypoints
     # Project all edge points onto the TOP-BOTTOM direction
     projections = np.array([np.dot(pt - top_pt, vec_normalized) for pt in edge_points])
     
-    # Get bottom 95% of edge points (larger percentage to move line further up onto petal)
+    # Get bottom 98% of edge points (larger percentage to move line further up onto petal)
     max_proj = np.max(projections)
     min_proj = np.min(projections)
     proj_range = max_proj - min_proj
@@ -173,17 +173,20 @@ def straighten_edge(image, petal_mask, edge_points, edge_type, bounds, keypoints
     result = image.copy()
     
     # Check which side top_pt is on
-    top_side = np.dot(perp_vec, top_pt - cut_line_point)
-    
+    top_side = np.dot(vec_normalized, top_pt - cut_line_point)
     # Create mask by checking each pixel
     for y in range(h):
         for x in range(w):
             point = np.array([x, y], dtype=np.float32)
-            side = np.dot(perp_vec, point - cut_line_point)
+            side = np.dot(vec_normalized, point - cut_line_point)
             
             # Keep pixels on the same side as top_pt
+            if np.sign(side) != np.sign(top_side):
+                result[y, x] = 0
+            '''
             if (top_side > 0 and side < 0) or (top_side < 0 and side > 0):
                 result[y, x] = 0  # Set to black
+            '''
     
     return result, edge_points, edge_type, perp_pt1, perp_pt2, vec_normalized
 
