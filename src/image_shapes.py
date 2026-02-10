@@ -186,7 +186,7 @@ def tobacco_analysis(image_filename,file_path):
     # im = cv2.imread(os.)
     croppedImg, new_dict = JSONfunc.img_crop(image_filename,file_path)
 #    cv2.grabCut()
-    return img
+    return croppedImg
 
 
 def main():

@@ -6,7 +6,6 @@ import image_shapes as shapes
 from skimage import io
 
 def pca_to_grey(image, mask, inverted=True):
-    image = image.get()
     x,y,z = image.shape
     mat = image.reshape([x*y,z])
     filter_array = mask.reshape([x*y])

@@ -36,9 +36,9 @@ def vein_axis(petal_img, vein_img, vein_annotation):
     vein_bottom = None
     for labelName in vein_annotation_t:
         if vein_annotation_t[labelName]['name'] == 'point':
-            if 'vein__center_top' in labelName:
+            if 'center_vein_top' in labelName:
                 vein_top = (vein_annotation_t[labelName]['cx'], vein_annotation_t[labelName]['cy'])
-            if 'vein__center_bottom' in labelName:
+            if 'center_vein_bottom' in labelName:
                 vein_bottom = (vein_annotation_t[labelName]['cx'], vein_annotation_t[labelName]['cy'])
 
     if vein_top is None or vein_bottom is None:
@@ -105,12 +105,12 @@ def base_edge(petal_img, vein_img, vein_annotation):
     if len(intersection_points) < 2:
         raise ValueError("Less than 2 intersection points found. Cannot determine base edge.")
     #choose the two intersection points that are farthest apart
-    intersections = sorted(intersections, key=lambda p: p[0])
-    left_pt, right_pt = intersections[0], intersections[-1]
+    intersection_points = sorted(intersection_points, key=lambda p: p[0])
+    left_pt, right_pt = intersection_points[0], intersection_points[-1]
 
     return left_pt, right_pt, perp_vector
 
-def crop_below_base_line(petal_img, left_pt, right_pt, vein_bottom):
+def crop_below_base_line(vein_img, left_pt, right_pt, vein_bottom):
     # Unpack
     x1, y1 = left_pt
     x2, y2 = right_pt
@@ -125,7 +125,7 @@ def crop_below_base_line(petal_img, left_pt, right_pt, vein_bottom):
     keep_positive = test > 0
 
     # Build mask
-    h, w = petal_img.shape[:2]
+    h, w = vein_img.shape[:2]
     mask = np.zeros((h, w), dtype=np.uint8)
 
     # For each pixel, check which side of the line it's on
@@ -138,7 +138,7 @@ def crop_below_base_line(petal_img, left_pt, right_pt, vein_bottom):
         mask[side_vals <= 0] = 255
 
     # Apply mask
-    cropped = cv2.bitwise_and(petal_img, petal_img, mask=mask)
+    cropped = cv2.bitwise_and(vein_img, vein_img, mask=mask)
 
     # Optional: crop bounding box tightly
     ys, xs = np.where(mask > 0)
@@ -148,11 +148,24 @@ def crop_below_base_line(petal_img, left_pt, right_pt, vein_bottom):
         cropped = cropped[y_min:y_max+1, x_min:x_max+1]
 
     return cropped, mask
+
+def draw_base_edge_line(petal_img, left_pt, right_pt, color=(0,0,255), thickness=3):
+    p1 = tuple(left_pt.astype(int))
+    p2 = tuple(right_pt.astype(int))
+    img_with_line = petal_img.copy()
+    cv2.line(img_with_line, p1, p2, color, thickness)
+    return img_with_line
+
+def perpendicular_line(petal_img, vein_img, vein_annotation):
+    petal_shape, vein_aligned, warp_matrix = img_align.align_images(petal_img, vein_img)
+    left_pt, right_pt, perp_vector = base_edge(petal_img, vein_img, vein_annotation)
+    return draw_base_edge_line(vein_aligned, left_pt, right_pt)
   
 def perpendicular_cut(petal_img, vein_img, vein_annotation):
     left_pt, right_pt, perp_vector = base_edge(petal_img, vein_img, vein_annotation)
     vein_top, vein_bottom, _ = vein_axis(petal_img, vein_img, vein_annotation)
-    cropped_petal, mask = crop_below_base_line(petal_img, left_pt, right_pt, vein_bottom)
+    petal_shape, vein_aligned, warp_matrix = img_align.align_images(petal_img, vein_img)
+    cropped_petal, mask = crop_below_base_line(vein_aligned, left_pt, right_pt, vein_bottom)
     return cropped_petal
 
 

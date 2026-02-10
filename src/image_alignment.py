@@ -15,6 +15,7 @@ def shapeStatistics(shape_image):
     skew identified in different directions
     orientation could use improvement
     """
+    #print('calculating shape statistics')
     moments = cv2.moments(shape_image)
     center = moments["m10"]/moments["m00"], moments["m01"]/moments["m00"] # centeroid formula
     area = moments["m00"]
@@ -26,14 +27,17 @@ def shapeStatistics(shape_image):
     #The angle given here will always be in the range [-45,45], whichever axis falls 
     # within that range. To make sure we get the major axis, we need use use this method:
     #  Citation: http://breckon.eu/toby/teaching/dip/opencv/SimpleImageAnalysisbyMoments.pdf
+    #print("running shape statistics: ")
+    length = 0
+    width = 0
     if (u20 - u02) < 0:
         if u11 > 0:
             angle += 90
         else:
             angle -=90
-
         #Straighten the shape so that we can figure out which way is the "head" based on the aligned 
         # third moment (e.g. skewness)
+        rotation = cv2.getRotationMatrix2D(center, -angle, 1)
         rotation = cv2.getRotationMatrix2D(center, -angle, 1).astype(np.float32)
         aligned = cv2.warpAffine(shape_image, rotation, shape_image.shape, flags=cv2.INTER_LINEAR)
         flat_moments = cv2.moments(aligned)
@@ -42,15 +46,16 @@ def shapeStatistics(shape_image):
 
         length = np.sqrt(2*(u20 + u02 + np.sqrt(4*(u11**2) + (u20-u02)**2)))
         width = np.sqrt(2*(u20 + u02 - np.sqrt(4*(u11**2) + (u20-u02)**2)))
-        return (center, area, angle, length, width)
+    
+    return (center, area, angle, length, width)
 
 def match_images(petal_image, vein_image, s1, s2):
     sz = petal_image.shape
     #Consruct an initial guess of the transformation required to align the two images
     (PetalCenter, PetalArea, PetalAngle, PetalLength, PetalWidth) = shapeStatistics(s1)
-    # print(f"petal stats: center = {PetalCenter}, area = {PetalArea}, angle = {PetalAngle}")
+    #print(f"petal stats: center = {PetalCenter}, area = {PetalArea}, angle = {PetalAngle}")
     (VeinCenter, VeinArea, VeinAngle, VeinLength, VeinWidth) = shapeStatistics(s2)
-    # print(f"vein stats: center = {VeinCenter}, area = {VeinArea}, angle = {VeinAngle}")
+    #print(f"vein stats: center = {VeinCenter}, area = {VeinArea}, angle = {VeinAngle}")
     scale = math.sqrt(VeinArea/PetalArea)
     number_of_iterations = 100
     termination_eps = 1e-5
@@ -140,7 +145,7 @@ def main():
     show = input("Show overlaid images? (y/n): ")
 
     for pair in image_pairs:
-
+        print(f"Processing pair: {pair[0]} and {pair[1]}")
         if "vein" in pair[0].lower():
             vein_img_filename = pair[0]
             petal_img_filename = pair[1]
@@ -165,12 +170,15 @@ def main():
 
         #get 'warp_matrix' from 'align_images' function and set = to 'vein_warp_matrix'
 
-        #perpenducular_cut = img_key.perpendicular_cut(petal_image, vein_image, vein_annotation)
+        cut_line = img_key.perpendicular_line(petal_image, vein_image, vein_annotation)
+        perpenducular_cut = img_key.perpendicular_cut(petal_image, vein_image, vein_annotation)
         petal_shape, vein_aligned, warp_matrix = align_images(petal_image, vein_image)
         img_with_keypoints = img_key.add_keypoints(petal_image, vein_image)
         if show == "y":
-            #io.imshow(perpenducular_cut)
-            #io.show()
+            io.imshow(cut_line)
+            io.show()
+            io.imshow(perpenducular_cut)
+            io.show()
             io.imshow(img_with_keypoints)
             io.show()
             io.imshow(petal_shape)
@@ -179,6 +187,7 @@ def main():
             io.show()
             io.imshow(vein_aligned)
             io.show()
+            
         #cv2.imshow('petal shape',petal_shape)
             
 
