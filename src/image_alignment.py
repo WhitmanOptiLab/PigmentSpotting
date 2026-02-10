@@ -109,6 +109,16 @@ def align_images(petal_img, vein_img, raw_vein=True):
     # vein shape and petal shape are the masks of each petal 
     return petal_shape, vein_aligned, warp_matrix
 
+def add_keypoints(petal_img, vein_img):
+    petal_shape, vein_aligned, warp_matrix = align_images(petal_img, vein_img)
+    #petal shape is a black and white mask of the shape. should be useful for keypoint detection
+    contours, hierarchy = cv2.findContours(petal_shape, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    img_with_keypoints = petal_img.copy()
+    for cnt in contours:
+        for point in cnt:
+            cv2.circle(img_with_keypoints, tuple(point[0]), 1, (255,255,255), -1)
+    #points are in (x,y) format in json file as opposed to drawing them.
+    return img_with_keypoints
           
 def get_file_pairs(dir):
     dataset = listdir(dir)

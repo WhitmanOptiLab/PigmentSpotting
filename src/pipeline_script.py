@@ -8,10 +8,8 @@ import json
 import JSON_functions as JSONfunc
 
 import numpy as np
-
+import cv2
 from cv2 import imshow, waitKey, imread, imwrite, IMREAD_GRAYSCALE
-
-
 #function 1
 '''
 input: should only take input dataset
