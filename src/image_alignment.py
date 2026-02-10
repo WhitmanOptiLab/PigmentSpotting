@@ -28,8 +28,6 @@ def shapeStatistics(shape_image):
     # within that range. To make sure we get the major axis, we need use use this method:
     #  Citation: http://breckon.eu/toby/teaching/dip/opencv/SimpleImageAnalysisbyMoments.pdf
     #print("running shape statistics: ")
-    length = 0
-    width = 0
     if (u20 - u02) < 0:
         if u11 > 0:
             angle += 90
@@ -37,15 +35,14 @@ def shapeStatistics(shape_image):
             angle -=90
         #Straighten the shape so that we can figure out which way is the "head" based on the aligned 
         # third moment (e.g. skewness)
-        rotation = cv2.getRotationMatrix2D(center, -angle, 1)
-        rotation = cv2.getRotationMatrix2D(center, -angle, 1).astype(np.float32)
-        aligned = cv2.warpAffine(shape_image, rotation, shape_image.shape, flags=cv2.INTER_LINEAR)
-        flat_moments = cv2.moments(aligned)
-        if flat_moments["mu03"] < 0:
-            angle += 180
-
-        length = np.sqrt(2*(u20 + u02 + np.sqrt(4*(u11**2) + (u20-u02)**2)))
-        width = np.sqrt(2*(u20 + u02 - np.sqrt(4*(u11**2) + (u20-u02)**2)))
+    rotation = cv2.getRotationMatrix2D(center, -angle, 1)
+    rotation = cv2.getRotationMatrix2D(center, -angle, 1).astype(np.float32)
+    aligned = cv2.warpAffine(shape_image, rotation, shape_image.shape, flags=cv2.INTER_LINEAR)
+    flat_moments = cv2.moments(aligned)
+    if flat_moments["mu03"] < 0:
+        angle += 180
+    length = np.sqrt(2*(u20 + u02 + np.sqrt(4*(u11**2) + (u20-u02)**2)))
+    width = np.sqrt(2*(u20 + u02 - np.sqrt(4*(u11**2) + (u20-u02)**2)))
     
     return (center, area, angle, length, width)
 
@@ -116,6 +113,18 @@ def align_images(petal_img, vein_img, raw_vein=True):
 
 
     
+
+def add_keypoints(petal_img, vein_img):
+    #redunant function with image_kayepoints
+    petal_shape, vein_aligned, warp_matrix = align_images(petal_img, vein_img)
+    #petal shape is a black and white mask of the shape. should be useful for keypoint detection
+    contours, hierarchy = cv2.findContours(petal_shape, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    img_with_keypoints = petal_img.copy()
+    for cnt in contours:
+        for point in cnt:
+            cv2.circle(img_with_keypoints, tuple(point[0]), 1, (255,255,255), -1)
+    #points are in (x,y) format in json file as opposed to drawing them.
+    return img_with_keypoints
           
 def get_file_pairs(dir):
     dataset = listdir(dir)
