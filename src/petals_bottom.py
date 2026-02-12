@@ -6,6 +6,7 @@ Uses JSON keypoints to identify the correct bottom edge.
 import os
 import sys
 import cv2
+from matplotlib import image
 import numpy as np
 import glob
 import json
@@ -228,10 +229,27 @@ def process_all_petals(input_dir, output_dir):
             petal_mask = get_petal_shape_simple(image)
             edge_points, edge_type, bounds = detect_edge_from_keypoints(petal_mask, keypoints)
             straightened, edge_pts, etype, perp_pt1, perp_pt2, vec_dir = straighten_edge(image, petal_mask, edge_points, edge_type, bounds, keypoints)
+
+            line_pt, line_dir, line_normal = fit_bottom_edge_line(edge_points)
+
             
             # Create visualization
             vis_image = image.copy()
             
+            h, w = image.shape[:2]
+            L = max(h, w) * 2
+
+            line_p1 = (line_pt - line_dir * L).astype(int)
+            line_p2 = (line_pt + line_dir * L).astype(int)
+
+            cv2.line(vis_image, tuple(line_p1),tuple(line_p2),(255, 0, 0), 4)
+
+            normal_len = 150
+            normal_end = (line_pt + line_normal * normal_len).astype(int)
+
+            cv2.arrowedLine(vis_image, tuple(line_pt.astype(int)), tuple(normal_end), (0, 165, 255), 4, tipLength=0.2)
+
+
             # Draw keypoints if available
             if keypoints:
                 if 'center_vein_bottom' in keypoints:
@@ -273,6 +291,139 @@ def process_all_petals(input_dir, output_dir):
         except Exception as e:
             import traceback
             traceback.print_exc()
+
+def fit_bottom_edge_line(edge_points, trim_percent=0.15):
+    """
+    Fit a straight line to the bottom edge using total least squares (PCA).
+
+    Returns:
+        line_point: (x, y) point on the fitted line
+        line_dir: normalized direction vector of the line
+        normal: normalized normal vector (points "up" the petal)
+    """
+    if len(edge_points) < 10:
+        raise ValueError("Not enough edge points to fit a line")
+
+    pts = edge_points.astype(np.float32)
+
+    # --- Optional trimming to remove extreme outliers ---
+    # Sort by projection along principal axis later; first rough center
+    center = np.mean(pts, axis=0)
+    dists = np.linalg.norm(pts - center, axis=1)
+
+    lo = np.percentile(dists, trim_percent * 100)
+    hi = np.percentile(dists, (1 - trim_percent) * 100)
+    pts = pts[(dists >= lo) & (dists <= hi)]
+
+    # --- PCA / total least squares ---
+    mean = np.mean(pts, axis=0)
+    pts_centered = pts - mean
+
+    _, _, vt = np.linalg.svd(pts_centered)
+    direction = vt[0]          # principal axis
+    direction /= np.linalg.norm(direction)
+
+    # Normal to the line
+    normal = np.array([-direction[1], direction[0]])
+    normal /= np.linalg.norm(normal)
+
+    return mean, direction, normal
+
+def cut_image_with_line(image, line_point, normal, keep_point):
+    """
+    Cuts the image along a line.
+    keep_point determines which side to keep (e.g. center_vein_top).
+    """
+    h, w = image.shape[:2]
+    result = image.copy()
+
+    keep_side = np.dot(normal, keep_point - line_point)
+
+    for y in range(h):
+        for x in range(w):
+            p = np.array([x, y], dtype=np.float32)
+            side = np.dot(normal, p - line_point)
+
+            if np.sign(side) != np.sign(keep_side):
+                result[y, x] = 0
+
+    return result
+
+def process_petals_linear(input_dir, output_dir):
+    # For each image, detect edge points, fit line, then cut
+    """Process all vein images in the input directory."""
+    os.makedirs(output_dir, exist_ok=True)
+    
+    patterns = ["*.JPG", "*.jpg", "*.png", "*.PNG"]
+    image_files = []
+    for pattern in patterns:
+        image_files.extend(glob.glob(os.path.join(input_dir, pattern)))
+    
+    # Filter for vein images
+    vein_files = [f for f in image_files if 'Vein' in os.path.basename(f) or 'vein' in os.path.basename(f)]
+    
+    if len(vein_files) == 0:
+        return
+    
+    success = 0
+    for i, img_path in enumerate(vein_files):
+        filename = os.path.basename(img_path)
+        
+        try:
+            # Read image
+            image = cv2.imread(img_path)
+            if image is None:
+                continue
+            
+            # Look for corresponding JSON file
+            base_name = os.path.splitext(filename)[0]
+            json_path = os.path.join(input_dir, f"{base_name}_labels.json")
+            
+            keypoints = None
+            if os.path.exists(json_path):
+                keypoints = load_keypoints(json_path)
+            
+            # Process image
+            petal_mask = get_petal_shape_simple(image)
+            edge_points, edge_type, bounds = detect_edge_from_keypoints(petal_mask, keypoints)
+            line_pt, line_dir, normal = fit_bottom_edge_line(edge_points)
+            
+            # Create visualization
+            vis_image = image.copy()
+
+            if keypoints:
+                if 'center_vein_bottom' in keypoints:
+                    cv2.circle(vis_image, keypoints['center_vein_bottom'], 15, (255, 0, 255), -1)  # Magenta
+                    cv2.putText(vis_image, "BOTTOM", 
+                              (keypoints['center_vein_bottom'][0] + 20, keypoints['center_vein_bottom'][1]), 
+                              cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 0, 255), 2)
+                if 'center_vein_top' in keypoints:
+                    cv2.circle(vis_image, keypoints['center_vein_top'], 15, (255, 255, 0), -1)  # Cyan
+                    cv2.putText(vis_image, "TOP", 
+                              (keypoints['center_vein_top'][0] + 20, keypoints['center_vein_top'][1]), 
+                              cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 0), 2)
+                
+                # Draw line from top to bottom
+                if 'center_vein_top' in keypoints and 'center_vein_bottom' in keypoints:
+                    cv2.line(vis_image, keypoints['center_vein_top'], keypoints['center_vein_bottom'], 
+                            (0, 255, 255), 3)  # Yellow line
+                    
+            h, w = image.shape[:2]
+            L = max(h, w) * 2
+
+            p1 = (line_pt - line_dir * L).astype(int)
+            p2 = (line_pt + line_dir * L).astype(int)
+
+            cv2.line(vis_image, tuple(p1), tuple(p2), (255, 0, 0), 3)
+            keep_pt = np.array(keypoints['center_vein_top'], dtype=np.float32)
+            straightened = cut_image_with_line(image, line_pt, normal, keep_pt)
+
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+
+
+    pass
 
 
 if __name__ == "__main__":
