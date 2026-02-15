@@ -10,6 +10,7 @@ from matplotlib import image
 import numpy as np
 import glob
 import json
+import image_alignment as img_align
 
 
 def load_keypoints(json_path):
@@ -232,10 +233,12 @@ def process_all_petals(input_dir, output_dir):
 
             line_pt, line_dir, line_normal = fit_bottom_edge_line(edge_points)
 
-            
+            intersection_points = get_corners(perp_pt1, perp_pt2, image)
+
             # Create visualization
             vis_image = image.copy()
-            
+            #Draw linear fit line.
+            '''
             h, w = image.shape[:2]
             L = max(h, w) * 2
 
@@ -248,6 +251,10 @@ def process_all_petals(input_dir, output_dir):
             normal_end = (line_pt + line_normal * normal_len).astype(int)
 
             cv2.arrowedLine(vis_image, tuple(line_pt.astype(int)), tuple(normal_end), (0, 165, 255), 4, tipLength=0.2)
+            '''
+            #Draw corner points
+            for point in intersection_points:
+                cv2.circle(vis_image, point, 7, (128, 0, 128), thickness=-1)
 
 
             # Draw keypoints if available
@@ -275,8 +282,12 @@ def process_all_petals(input_dir, output_dir):
                 cv2.line(vis_image, pt1, pt2, (0, 0, 255), 4)  # Red perpendicular line
             
             # Draw edge points
+            '''
             for pt in edge_pts[::max(1, len(edge_pts)//40)]:
                 cv2.circle(vis_image, tuple(pt.astype(int)), 5, (0, 255, 0), -1)
+            '''
+
+            
             
             # Save
             ext = os.path.splitext(filename)[1]
@@ -422,8 +433,75 @@ def process_petals_linear(input_dir, output_dir):
             import traceback
             traceback.print_exc()
 
+def intersection(o1, p1, o2, p2):
+    """
+    Finds the intersection point of two lines defined by (o1, p1) and (o2, p2).
+    Returns the intersection point (x, y) if it exists, otherwise None.
+    """
+    x = o2 - o1
+    d1 = p1 - o1
+    d2 = p2 - o2
 
-    pass
+    cross = d1[0] * d2[1] - d1[1] * d2[0]
+    if abs(cross) < 1e-8: # Lines are parallel
+        return None
+
+    t1 = (x[0] * d2[1] - x[1] * d2[0]) / cross
+    # Check if the intersection point lies within both line segments
+        
+    t2 = (x[0] * d1[1] - x[1] * d1[0]) / cross
+    if not (0 <= t2 <= 1):
+        return None
+
+    r = o1 + d1 * t1
+    return (int(round(r[0])), int(round(r[1])))
+
+
+def get_corners(pt1, pt2, image):
+    '''
+    Using either a linear fit line or a perpendicular line intersect with the petal edge to determine the bottom corners of the petal
+    '''
+    pt1 = np.array(pt1, dtype=np.float32)
+    pt2 = np.array(pt2, dtype=np.float32)
+
+    petal_mask = get_petal_shape_simple(image)
+
+    contours, hierarchy = cv2.findContours(petal_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    main_contour = max(contours, key=cv2.contourArea)
+    
+    line = np.array([pt1, pt2])
+    intersection_points = []
+
+    for i in range(len(main_contour)-1):
+        pt1_contour = main_contour[i][0]
+        pt2_contour = main_contour[i+1][0]
+        
+        point = intersection(pt1, pt2, pt1_contour, pt2_contour)
+        if point:
+            intersection_points.append(point)
+    '''
+    for point in intersection_points:
+        cv2.circle(image, point, 4, (0, 255, 0), thickness=-1)
+    '''
+    if len(intersection_points) > 2:
+        pts = np.array(intersection_points)
+
+        # sort along perpendicular direction
+        direction = pt2 - pt1
+        direction /= np.linalg.norm(direction)
+
+        projections = pts @ direction
+        idx = np.argsort(projections)
+
+        intersection_points = [
+            tuple(pts[idx[0]]),
+            tuple(pts[idx[-1]])
+        ]
+
+
+    return intersection_points
+
+    
 
 
 if __name__ == "__main__":
