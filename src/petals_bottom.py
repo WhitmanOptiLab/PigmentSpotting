@@ -6,9 +6,11 @@ Uses JSON keypoints to identify the correct bottom edge.
 import os
 import sys
 import cv2
+from matplotlib import image
 import numpy as np
 import glob
 import json
+import image_alignment as img_align
 
 
 def load_keypoints(json_path):
@@ -126,7 +128,7 @@ def straighten_edge(image, petal_mask, edge_points, edge_type, bounds, keypoints
     h, w = image.shape[:2]
     
     if not keypoints or 'center_vein_bottom' not in keypoints or 'center_vein_top' not in keypoints:
-        return image, edge_points, edge_type, None, None, None
+        return image, edge_points, edge_type, None, None, None, {}
     
     bottom_pt = np.array(keypoints['center_vein_bottom'], dtype=np.float32)
     top_pt = np.array(keypoints['center_vein_top'], dtype=np.float32)
@@ -136,7 +138,7 @@ def straighten_edge(image, petal_mask, edge_points, edge_type, bounds, keypoints
     vec_length = np.linalg.norm(vec)
     
     if vec_length == 0:
-        return image, edge_points, edge_type, None, None, None
+        return image, edge_points, edge_type, None, None, None, {}
     
     # Normalize the vector
     vec_normalized = vec / vec_length
@@ -169,24 +171,26 @@ def straighten_edge(image, petal_mask, edge_points, edge_type, bounds, keypoints
     perp_pt1 = cut_line_point - perp_vec * line_length
     perp_pt2 = cut_line_point + perp_vec * line_length
     
-    # Create a mask - keep only pixels on the TOP side of the perpendicular (red) line
-    # The normal to the red line is the yellow line direction (vec_normalized)
+    # Create a mask - keep only pixels on the TOP side of the perpendicular line
     result = image.copy()
     
-    # Check which side top_pt is on (using the yellow line direction as the normal)
+    # Check which side top_pt is on
     top_side = np.dot(vec_normalized, top_pt - cut_line_point)
-    
     # Create mask by checking each pixel
     for y in range(h):
         for x in range(w):
             point = np.array([x, y], dtype=np.float32)
             side = np.dot(vec_normalized, point - cut_line_point)
             
-            # Keep pixels on the same side as top_pt (toward the top keypoint)
+            # Keep pixels on the same side as top_pt
+            if np.sign(side) != np.sign(top_side):
+                result[y, x] = 0
+            '''
             if (top_side > 0 and side < 0) or (top_side < 0 and side > 0):
                 result[y, x] = 0  # Set to black
+            '''
     
-    return result, edge_points, edge_type, perp_pt1, perp_pt2, vec_normalized
+    return result, edge_points, edge_type, perp_pt1, perp_pt2, vec_normalized, {'cut_line_point': cut_line_point}
 
 
 def process_all_petals(input_dir, output_dir):
@@ -225,12 +229,195 @@ def process_all_petals(input_dir, output_dir):
             # Process image
             petal_mask = get_petal_shape_simple(image)
             edge_points, edge_type, bounds = detect_edge_from_keypoints(petal_mask, keypoints)
-            straightened, edge_pts, etype, perp_pt1, perp_pt2, vec_dir = straighten_edge(image, petal_mask, edge_points, edge_type, bounds, keypoints)
+            straightened, edge_pts, etype, perp_pt1, perp_pt2, vec_dir, straightened_data = straighten_edge(image, petal_mask, edge_points, edge_type, bounds, keypoints)
+
+            line_pt, line_dir, line_normal = fit_bottom_edge_line(edge_points)
+
+            intersection_points = get_corners(perp_pt1, perp_pt2, image)
+
+            # Create visualization
+            vis_image = image.copy()
+            #Draw linear fit line.
+            '''
+            h, w = image.shape[:2]
+            L = max(h, w) * 2
+
+            line_p1 = (line_pt - line_dir * L).astype(int)
+            line_p2 = (line_pt + line_dir * L).astype(int)
+
+            cv2.line(vis_image, tuple(line_p1),tuple(line_p2),(255, 0, 0), 4)
+
+            normal_len = 150
+            normal_end = (line_pt + line_normal * normal_len).astype(int)
+
+            cv2.arrowedLine(vis_image, tuple(line_pt.astype(int)), tuple(normal_end), (0, 165, 255), 4, tipLength=0.2)
+            '''
+            #Draw corner points
+            for point in intersection_points:
+                cv2.circle(vis_image, point, 7, (128, 0, 128), thickness=-1)
+
+
+            # Draw keypoints if available
+            if keypoints:
+                # Draw the adjusted BOTTOM keypoint at the intersection of yellow and red lines
+                if 'center_vein_top' in keypoints and perp_pt1 is not None:
+                    # The cut_line_point is the intersection we calculated
+                    adjusted_bottom = straightened_data.get('cut_line_point')
+                    if adjusted_bottom is not None:
+                        cv2.circle(vis_image, tuple(adjusted_bottom.astype(int)), 15, (255, 0, 255), -1)  # Magenta
+                        cv2.putText(vis_image, "BOTTOM", 
+                                  (int(adjusted_bottom[0]) + 20, int(adjusted_bottom[1])), 
+                                  cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 0, 255), 2)
+                elif 'center_vein_bottom' in keypoints:
+                    # Fallback to original if no intersection calculated
+                    cv2.circle(vis_image, keypoints['center_vein_bottom'], 15, (255, 0, 255), -1)  # Magenta
+                    cv2.putText(vis_image, "BOTTOM", 
+                              (keypoints['center_vein_bottom'][0] + 20, keypoints['center_vein_bottom'][1]), 
+                              cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 0, 255), 2)
+                
+                if 'center_vein_top' in keypoints:
+                    cv2.circle(vis_image, keypoints['center_vein_top'], 15, (255, 255, 0), -1)  # Cyan
+                    cv2.putText(vis_image, "TOP", 
+                              (keypoints['center_vein_top'][0] + 20, keypoints['center_vein_top'][1]), 
+                              cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 0), 2)
+                
+                # Draw yellow line from top to adjusted bottom
+                if 'center_vein_top' in keypoints:
+                    adjusted_bottom = straightened_data.get('cut_line_point')
+                    if adjusted_bottom is not None:
+                        cv2.line(vis_image, keypoints['center_vein_top'], tuple(adjusted_bottom.astype(int)), 
+                                (0, 255, 255), 3)  # Yellow line
+                    elif 'center_vein_bottom' in keypoints:
+                        cv2.line(vis_image, keypoints['center_vein_top'], keypoints['center_vein_bottom'], 
+                                (0, 255, 255), 3)  # Yellow line
+            
+            # Draw perpendicular cutting line if available
+            if perp_pt1 is not None and perp_pt2 is not None:
+                pt1 = tuple(perp_pt1.astype(int))
+                pt2 = tuple(perp_pt2.astype(int))
+                cv2.line(vis_image, pt1, pt2, (0, 0, 255), 4)  # Red perpendicular line
+            
+            # Draw edge points
+            '''
+            for pt in edge_pts[::max(1, len(edge_pts)//40)]:
+                cv2.circle(vis_image, tuple(pt.astype(int)), 5, (0, 255, 0), -1)
+            '''
+
+            
+            
+            # Save
+            ext = os.path.splitext(filename)[1]
+            output_path = os.path.join(output_dir, f"{base_name}_Straightened{ext}")
+            viz_path = os.path.join(output_dir, f"{base_name}_EdgeDetection{ext}")
+            
+            cv2.imwrite(output_path, straightened)
+            cv2.imwrite(viz_path, vis_image)
+            
+            success += 1
+            
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+
+def fit_bottom_edge_line(edge_points, trim_percent=0.15):
+    """
+    Fit a straight line to the bottom edge using total least squares (PCA).
+
+    Returns:
+        line_point: (x, y) point on the fitted line
+        line_dir: normalized direction vector of the line
+        normal: normalized normal vector (points "up" the petal)
+    """
+    if len(edge_points) < 10:
+        raise ValueError("Not enough edge points to fit a line")
+
+    pts = edge_points.astype(np.float32)
+
+    # --- Optional trimming to remove extreme outliers ---
+    # Sort by projection along principal axis later; first rough center
+    center = np.mean(pts, axis=0)
+    dists = np.linalg.norm(pts - center, axis=1)
+
+    lo = np.percentile(dists, trim_percent * 100)
+    hi = np.percentile(dists, (1 - trim_percent) * 100)
+    pts = pts[(dists >= lo) & (dists <= hi)]
+
+    # --- PCA / total least squares ---
+    mean = np.mean(pts, axis=0)
+    pts_centered = pts - mean
+
+    _, _, vt = np.linalg.svd(pts_centered)
+    direction = vt[0]          # principal axis
+    direction /= np.linalg.norm(direction)
+
+    # Normal to the line
+    normal = np.array([-direction[1], direction[0]])
+    normal /= np.linalg.norm(normal)
+
+    return mean, direction, normal
+
+def cut_image_with_line(image, line_point, normal, keep_point):
+    """
+    Cuts the image along a line.
+    keep_point determines which side to keep (e.g. center_vein_top).
+    """
+    h, w = image.shape[:2]
+    result = image.copy()
+
+    keep_side = np.dot(normal, keep_point - line_point)
+
+    for y in range(h):
+        for x in range(w):
+            p = np.array([x, y], dtype=np.float32)
+            side = np.dot(normal, p - line_point)
+
+            if np.sign(side) != np.sign(keep_side):
+                result[y, x] = 0
+
+    return result
+
+def process_petals_linear(input_dir, output_dir):
+    # For each image, detect edge points, fit line, then cut
+    """Process all vein images in the input directory."""
+    os.makedirs(output_dir, exist_ok=True)
+    
+    patterns = ["*.JPG", "*.jpg", "*.png", "*.PNG"]
+    image_files = []
+    for pattern in patterns:
+        image_files.extend(glob.glob(os.path.join(input_dir, pattern)))
+    
+    # Filter for vein images
+    vein_files = [f for f in image_files if 'Vein' in os.path.basename(f) or 'vein' in os.path.basename(f)]
+    
+    if len(vein_files) == 0:
+        return
+    
+    success = 0
+    for i, img_path in enumerate(vein_files):
+        filename = os.path.basename(img_path)
+        
+        try:
+            # Read image
+            image = cv2.imread(img_path)
+            if image is None:
+                continue
+            
+            # Look for corresponding JSON file
+            base_name = os.path.splitext(filename)[0]
+            json_path = os.path.join(input_dir, f"{base_name}_labels.json")
+            
+            keypoints = None
+            if os.path.exists(json_path):
+                keypoints = load_keypoints(json_path)
+            
+            # Process image
+            petal_mask = get_petal_shape_simple(image)
+            edge_points, edge_type, bounds = detect_edge_from_keypoints(petal_mask, keypoints)
+            line_pt, line_dir, normal = fit_bottom_edge_line(edge_points)
             
             # Create visualization
             vis_image = image.copy()
-            
-            # Draw keypoints if available
+
             if keypoints:
                 if 'center_vein_bottom' in keypoints:
                     cv2.circle(vis_image, keypoints['center_vein_bottom'], 15, (255, 0, 255), -1)  # Magenta
@@ -247,35 +434,94 @@ def process_all_petals(input_dir, output_dir):
                 if 'center_vein_top' in keypoints and 'center_vein_bottom' in keypoints:
                     cv2.line(vis_image, keypoints['center_vein_top'], keypoints['center_vein_bottom'], 
                             (0, 255, 255), 3)  # Yellow line
-            
-            # Draw perpendicular cutting line if available
-            if perp_pt1 is not None and perp_pt2 is not None:
-                pt1 = tuple(perp_pt1.astype(int))
-                pt2 = tuple(perp_pt2.astype(int))
-                cv2.line(vis_image, pt1, pt2, (0, 0, 255), 4)  # Red perpendicular line
-            
-            # Draw edge points
-            for pt in edge_pts[::max(1, len(edge_pts)//40)]:
-                cv2.circle(vis_image, tuple(pt.astype(int)), 5, (0, 255, 0), -1)
-            
-            # Save
-            ext = os.path.splitext(filename)[1]
-            output_path = os.path.join(output_dir, f"{base_name}_Straightened{ext}")
-            viz_path = os.path.join(output_dir, f"{base_name}_EdgeDetection{ext}")
-            
-            cv2.imwrite(output_path, straightened)
-            cv2.imwrite(viz_path, vis_image)
-            
-            success += 1
-            
+                    
+            h, w = image.shape[:2]
+            L = max(h, w) * 2
+
+            p1 = (line_pt - line_dir * L).astype(int)
+            p2 = (line_pt + line_dir * L).astype(int)
+
+            cv2.line(vis_image, tuple(p1), tuple(p2), (255, 0, 0), 3)
+            keep_pt = np.array(keypoints['center_vein_top'], dtype=np.float32)
+            straightened = cut_image_with_line(image, line_pt, normal, keep_pt)
+
         except Exception as e:
             import traceback
             traceback.print_exc()
+
+def intersection(o1, p1, o2, p2):
+    """
+    Finds the intersection point of two lines defined by (o1, p1) and (o2, p2).
+    Returns the intersection point (x, y) if it exists, otherwise None.
+    """
+    x = o2 - o1
+    d1 = p1 - o1
+    d2 = p2 - o2
+
+    cross = d1[0] * d2[1] - d1[1] * d2[0]
+    if abs(cross) < 1e-8: # Lines are parallel
+        return None
+
+    t1 = (x[0] * d2[1] - x[1] * d2[0]) / cross
+    # Check if the intersection point lies within both line segments
+        
+    t2 = (x[0] * d1[1] - x[1] * d1[0]) / cross
+    if not (0 <= t2 <= 1):
+        return None
+
+    r = o1 + d1 * t1
+    return (int(round(r[0])), int(round(r[1])))
+
+
+def get_corners(pt1, pt2, image):
+    '''
+    Using either a linear fit line or a perpendicular line intersect with the petal edge to determine the bottom corners of the petal
+    '''
+    pt1 = np.array(pt1, dtype=np.float32)
+    pt2 = np.array(pt2, dtype=np.float32)
+
+    petal_mask = get_petal_shape_simple(image)
+
+    contours, hierarchy = cv2.findContours(petal_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    main_contour = max(contours, key=cv2.contourArea)
+    
+    line = np.array([pt1, pt2])
+    intersection_points = []
+
+    for i in range(len(main_contour)-1):
+        pt1_contour = main_contour[i][0]
+        pt2_contour = main_contour[i+1][0]
+        
+        point = intersection(pt1, pt2, pt1_contour, pt2_contour)
+        if point:
+            intersection_points.append(point)
+    '''
+    for point in intersection_points:
+        cv2.circle(image, point, 4, (0, 255, 0), thickness=-1)
+    '''
+    if len(intersection_points) > 2:
+        pts = np.array(intersection_points)
+
+        # sort along perpendicular direction
+        direction = pt2 - pt1
+        direction /= np.linalg.norm(direction)
+
+        projections = pts @ direction
+        idx = np.argsort(projections)
+
+        intersection_points = [
+            tuple(pts[idx[0]]),
+            tuple(pts[idx[-1]])
+        ]
+
+
+    return intersection_points
+
+    
 
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:
         sys.exit(1)
-    
+    #example cmd line python3 .\petals_bottom.py ..\example_dataset ..\output
     process_all_petals(sys.argv[1], sys.argv[2])
-
