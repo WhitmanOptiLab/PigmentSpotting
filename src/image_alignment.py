@@ -88,7 +88,24 @@ def match_images(petal_image, vein_image, s1, s2):
         io.show()
     elif cc == 0:
         raise ValueError("Cannot find any alignment for the images provided.")
-    return cv2.warpAffine(cv2.bitwise_and(vein_image,s2), warp, (sz[1],sz[0]), flags=cv2.INTER_LINEAR + cv2.WARP_INVERSE_MAP), warp
+    #return cv2.warpAffine(cv2.bitwise_and(vein_image,s2), warp, (sz[1],sz[0]), flags=cv2.INTER_LINEAR + cv2.WARP_INVERSE_MAP), warp
+    # 1. Warp the vein image into petal space
+    aligned_vein = cv2.warpAffine(
+        vein_image,
+        warp,
+        (sz[1], sz[0]),
+        flags=cv2.INTER_LINEAR + cv2.WARP_INVERSE_MAP
+    )
+
+    # 2. Apply the PETAL silhouette mask (s1), not the vein mask (s2)
+    if len(aligned_vein.shape) == 3:
+        petal_mask_3 = cv2.merge([s1, s1, s1])
+        silhouette_matched = cv2.bitwise_and(aligned_vein, petal_mask_3)
+    else:
+        silhouette_matched = cv2.bitwise_and(aligned_vein, s1)
+
+    return silhouette_matched, warp
+
 
 def combine_imgs(img1, img2):
     grimg = cv2.cvtColor(img2,cv2.COLOR_GRAY2BGR)

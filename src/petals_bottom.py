@@ -7,10 +7,13 @@ import os
 import sys
 import cv2
 from matplotlib import image
+from skimage import io
 import numpy as np
 import glob
 import json
 import image_alignment as img_align
+import JSON_functions as JSONfunc
+from os import path, listdir
 
 
 def load_keypoints(json_path):
@@ -34,6 +37,18 @@ def load_keypoints(json_path):
     except Exception as e:
         return None
 
+def get_keypoints(vein_annotation):
+    keypoints = {'center_vein_top': (vein_annotation['center_vein_top']['cx'], vein_annotation['center_vein_top']['cy']),
+                 'center_vein_bottom': (vein_annotation['center_vein_bottom']['cx'], vein_annotation['center_vein_bottom']['cy'])}
+    return keypoints
+
+
+def get_petal_intersection(petal_image, vein_image):
+    """Gets intersection of petal vein image and petal image. Returns only those pixels that overlap"""
+    gray_petal_image = cv2.cvtColor(petal_image, cv2.COLOR_BGR2GRAY)
+    gray_vein_image = cv2.cvtColor(vein_image, cv2.COLOR_BGR2GRAY)
+    intersection = cv2.bitwise_and(gray_petal_image, gray_vein_image)
+    return intersection
 
 def get_petal_shape_simple(image):
     """Simple petal shape detection."""
@@ -196,11 +211,15 @@ def straighten_edge(image, petal_mask, edge_points, edge_type, bounds, keypoints
 def process_all_petals(input_dir, output_dir):
     """Process all vein images in the input directory."""
     os.makedirs(output_dir, exist_ok=True)
-    
+
+    image_pairs = img_align.get_file_pairs(input_dir)
+    #old code
+    '''
     patterns = ["*.JPG", "*.jpg", "*.png", "*.PNG"]
     image_files = []
     for pattern in patterns:
         image_files.extend(glob.glob(os.path.join(input_dir, pattern)))
+
     
     # Filter for vein images
     vein_files = [f for f in image_files if 'Vein' in os.path.basename(f) or 'vein' in os.path.basename(f)]
@@ -211,13 +230,43 @@ def process_all_petals(input_dir, output_dir):
     success = 0
     for i, img_path in enumerate(vein_files):
         filename = os.path.basename(img_path)
+    '''
+    success = 0
+    for pair in image_pairs:
+        print(f"Processing pair: {pair[0]} and {pair[1]}")
+        if "vein" in pair[0].lower():
+            vein_img_filename = pair[0]
+            petal_img_filename = pair[1]
+        else:
+            vein_img_filename = pair[1]
+            petal_img_filename = pair[0]
+
+        petal_image, petal_annotation = JSONfunc.img_crop(petal_img_filename, input_dir)
+        
+        petal_x = petal_annotation["bounding_box"]["x"]
+        petal_y = petal_annotation["bounding_box"]["y"]
+
+
+        petal_warp_matrix = [[1,0,int(-petal_x)],[0,1,int(-petal_y)]] # adjust the petal annotation
+
+        petal_annotation_t = JSONfunc.get_transformed_annotations(petal_annotation, petal_warp_matrix)
+
+        #vein initalization for image (vein_image) and dictionary (new_vein_dict)
+
+        vein_annotation = JSONfunc.parse_annotation(vein_img_filename, input_dir, group_attr="label")
+        vein_image = cv2.imread(path.join(input_dir, vein_img_filename),0)
+
+        img_path = os.path.join(input_dir, vein_img_filename)
+        filename = vein_img_filename
+
         
         try:
             # Read image
-            image = cv2.imread(img_path)
+            image = vein_image
+            #image = cv2.imread(img_path)
             if image is None:
                 continue
-            
+            #image is vein image
             # Look for corresponding JSON file
             base_name = os.path.splitext(filename)[0]
             json_path = os.path.join(input_dir, f"{base_name}_labels.json")
@@ -227,6 +276,14 @@ def process_all_petals(input_dir, output_dir):
                 keypoints = load_keypoints(json_path)
             
             # Process image
+            petal_shape, vein_aligned, warp_matrix = img_align.align_images(petal_image, image)
+            inv_warp_matrix = cv2.invertAffineTransform(warp_matrix) 
+            vein_annotation_t = JSONfunc.get_transformed_annotations(vein_annotation,inv_warp_matrix)
+            aligned_keypoints = get_keypoints(vein_annotation_t)
+            keypoints = aligned_keypoints
+            #keypoints = vein_annotation_t
+            image = vein_aligned
+            #image = cv2.rotate(image, cv2.ROTATE_180)
             petal_mask = get_petal_shape_simple(image)
             edge_points, edge_type, bounds = detect_edge_from_keypoints(petal_mask, keypoints)
             straightened, edge_pts, etype, perp_pt1, perp_pt2, vec_dir = straighten_edge(image, petal_mask, edge_points, edge_type, bounds, keypoints)
