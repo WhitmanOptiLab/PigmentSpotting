@@ -171,7 +171,7 @@ def main():
     show = input("Show overlaid images? (y/n): ")
 
     for pair in image_pairs:
-        print(f"Processing pair: {pair[0]} and {pair[1]}")
+        #print(f"Processing pair: {pair[0]} and {pair[1]}")
         if "vein" in pair[0].lower():
             vein_img_filename = pair[0]
             petal_img_filename = pair[1]
