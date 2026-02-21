@@ -130,36 +130,36 @@ def warp_petals(input_dir, output_dir):
             for keypoint in keypoints:
                 #keypoint order is vein_top, vein_bottom, top corner, bottom corner
                 print(keypoint)
-                vis_image = image.copy()
-                if 'center_vein_bottom' in keypoints:
-                    cv2.circle(vis_image, keypoints['center_vein_bottom'], 15, (255, 0, 255), -1)  # Magenta
-                    cv2.putText(vis_image, "BOTTOM", 
-                              (keypoints['center_vein_bottom'][0] + 20, keypoints['center_vein_bottom'][1]), 
-                              cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 0, 255), 2)
-                if 'center_vein_top' in keypoints:
-                    cv2.circle(vis_image, keypoints['center_vein_top'], 15, (255, 255, 0), -1)  # Cyan
-                    cv2.putText(vis_image, "TOP", 
-                              (keypoints['center_vein_top'][0] + 20, keypoints['center_vein_top'][1]), 
-                              cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 0), 2)
-                if 'top corner' in keypoints:
-                    cv2.circle(vis_image, keypoints['top corner'], 15, (255, 255, 0), -1)  # Cyan
-                    cv2.putText(vis_image, "TOP Corner", 
-                              (keypoints['top corner'][0] + 20, keypoints['top corner'][1]), 
-                              cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 0), 2)
-                if 'bottom corner' in keypoints:
-                    cv2.circle(vis_image, keypoints['bottom corner'], 15, (255, 255, 0), -1)  # Cyan
-                    cv2.putText(vis_image, "BOTTOM Corner", 
-                              (keypoints['bottom corner'][0] + 20, keypoints['bottom corner'][1]), 
-                              cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 0), 2)
-                # Draw line from top to bottom
-                if 'center_vein_top' in keypoints and 'center_vein_bottom' in keypoints:
-                    cv2.line(vis_image, keypoints['center_vein_top'], keypoints['center_vein_bottom'], 
-                            (0, 255, 255), 3)  # Yellow line
-                if 'top corner' in keypoints and 'bottom corner' in keypoints:
-                    cv2.line(vis_image, keypoints['top corner'], keypoints['bottom corner'], 
-                            (0, 255, 255), 3)  # Yellow line
-                io.imshow(vis_image)
-                io.show()
+            vis_image = image.copy()
+            if 'center_vein_bottom' in keypoints:
+                cv2.circle(vis_image, keypoints['center_vein_bottom'], 15, (255, 0, 255), -1)  # Magenta
+                cv2.putText(vis_image, "BOTTOM", 
+                          (keypoints['center_vein_bottom'][0] + 20, keypoints['center_vein_bottom'][1]), 
+                          cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 0, 255), 2)
+            if 'center_vein_top' in keypoints:
+                cv2.circle(vis_image, keypoints['center_vein_top'], 15, (255, 255, 0), -1)  # Cyan
+                cv2.putText(vis_image, "TOP", 
+                          (keypoints['center_vein_top'][0] + 20, keypoints['center_vein_top'][1]), 
+                          cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 0), 2)
+            if 'top corner' in keypoints:
+                cv2.circle(vis_image, keypoints['top corner'], 15, (255, 255, 0), -1)  # Cyan
+                cv2.putText(vis_image, "TOP Corner", 
+                          (keypoints['top corner'][0] + 20, keypoints['top corner'][1]), 
+                          cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 0), 2)
+            if 'bottom corner' in keypoints:
+                cv2.circle(vis_image, keypoints['bottom corner'], 15, (255, 255, 0), -1)  # Cyan
+                cv2.putText(vis_image, "BOTTOM Corner", 
+                          (keypoints['bottom corner'][0] + 20, keypoints['bottom corner'][1]), 
+                          cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 0), 2)
+            # Draw line from top to bottom
+            if 'center_vein_top' in keypoints and 'center_vein_bottom' in keypoints:
+                cv2.line(vis_image, keypoints['center_vein_top'], keypoints['center_vein_bottom'], 
+                        (0, 255, 255), 3)  # Yellow line
+            if 'top corner' in keypoints and 'bottom corner' in keypoints:
+                cv2.line(vis_image, keypoints['top corner'], keypoints['bottom corner'], 
+                        (0, 255, 255), 3)  # Yellow line
+            io.imshow(vis_image)
+            io.show()
         except:
             pass
 

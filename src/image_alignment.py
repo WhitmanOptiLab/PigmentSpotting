@@ -199,7 +199,7 @@ def main():
         cut_line = img_key.perpendicular_line(petal_image, vein_image, vein_annotation)
         perpenducular_cut = img_key.perpendicular_cut(petal_image, vein_image, vein_annotation)
         petal_shape, vein_aligned, warp_matrix = align_images(petal_image, vein_image)
-        img_with_keypoints = img_key.add_keypoints(petal_image, vein_image)
+        img_with_keypoints = add_keypoints(petal_image, vein_image)
         if show == "y":
             io.imshow(cut_line)
             io.show()
