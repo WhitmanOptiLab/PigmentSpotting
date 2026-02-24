@@ -69,6 +69,7 @@ def warp_petals(input_dir, output_dir):
 
     image_pairs = img_align.get_file_pairs(input_dir)
     success = 0
+    straightened_images = petals_bottom.process_all_petals(input_dir, output_dir, False)
     for pair in image_pairs:
         #print(f"Processing pair: {pair[0]} and {pair[1]}")
         if "vein" in pair[0].lower():
@@ -84,9 +85,9 @@ def warp_petals(input_dir, output_dir):
         petal_y = petal_annotation["bounding_box"]["y"]
 
 
-        petal_warp_matrix = [[1,0,int(-petal_x)],[0,1,int(-petal_y)]] # adjust the petal annotation
+        #petal_warp_matrix = [[1,0,int(-petal_x)],[0,1,int(-petal_y)]] # adjust the petal annotation
 
-        petal_annotation_t = JSONfunc.get_transformed_annotations(petal_annotation, petal_warp_matrix)
+        #petal_annotation_t = JSONfunc.get_transformed_annotations(petal_annotation, petal_warp_matrix)
 
         #vein initalization for image (vein_image) and dictionary (new_vein_dict)
 
@@ -119,17 +120,24 @@ def warp_petals(input_dir, output_dir):
             aligned_keypoints = petals_bottom.get_keypoints(vein_annotation_t)
             keypoints = aligned_keypoints
             #keypoints = vein_annotation_t
-            image = vein_aligned
+            #Use the straightened image from petals_bottom
+            image = straightened_images[base_name]
+            #image = vein_aligned #fallback
+
             if image is None:
                 #print('no image')
                 continue
             # Look for corresponding JSON file
             if os.path.exists(json_path):
                 #print('getting keypoints')
-                keypoints = get_keypoints(vein_annotation_t, image)
+                keypoints = get_keypoints(vein_annotation_t, vein_aligned)
+                #keypoints = get_keypoints(vein_annotation_t, image)
+            '''
             for keypoint in keypoints:
                 #keypoint order is vein_top, vein_bottom, top corner, bottom corner
                 print(keypoint)
+            '''
+            
             vis_image = image.copy()
             if 'center_vein_bottom' in keypoints:
                 cv2.circle(vis_image, keypoints['center_vein_bottom'], 15, (255, 0, 255), -1)  # Magenta

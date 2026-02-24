@@ -208,7 +208,7 @@ def straighten_edge(image, petal_mask, edge_points, edge_type, bounds, keypoints
     return result, edge_points, edge_type, perp_pt1, perp_pt2, vec_normalized
 
 
-def process_all_petals(input_dir, output_dir):
+def process_all_petals(input_dir, output_dir, Write=True):
     """Process all vein images in the input directory."""
     os.makedirs(output_dir, exist_ok=True)
 
@@ -232,6 +232,7 @@ def process_all_petals(input_dir, output_dir):
         filename = os.path.basename(img_path)
     '''
     success = 0
+    straightened_images = {}
     for pair in image_pairs:
         #print(f"Processing pair: {pair[0]} and {pair[1]}")
         if "vein" in pair[0].lower():
@@ -288,7 +289,8 @@ def process_all_petals(input_dir, output_dir):
             edge_points, edge_type, bounds = detect_edge_from_keypoints(petal_mask, keypoints)
             straightened, edge_pts, etype, perp_pt1, perp_pt2, vec_dir = straighten_edge(image, petal_mask, edge_points, edge_type, bounds, keypoints)
 
-            line_pt, line_dir, line_normal = fit_bottom_edge_line(edge_points)
+            #For linear fit
+            #line_pt, line_dir, line_normal = fit_bottom_edge_line(edge_points)
 
             intersection_points = get_corners(perp_pt1, perp_pt2, image)
 
@@ -347,18 +349,23 @@ def process_all_petals(input_dir, output_dir):
             
             
             # Save
-            ext = os.path.splitext(filename)[1]
-            output_path = os.path.join(output_dir, f"{base_name}_Straightened{ext}")
-            viz_path = os.path.join(output_dir, f"{base_name}_EdgeDetection{ext}")
-            
-            cv2.imwrite(output_path, straightened)
-            cv2.imwrite(viz_path, vis_image)
-            
-            success += 1
+            if (Write):
+                ext = os.path.splitext(filename)[1]
+                output_path = os.path.join(output_dir, f"{base_name}_Straightened{ext}")
+                viz_path = os.path.join(output_dir, f"{base_name}_EdgeDetection{ext}")
+                
+                
+                cv2.imwrite(output_path, straightened)
+                cv2.imwrite(viz_path, vis_image)
+                #Copy the annotations into the same folder?
+                success += 1
+            else:
+                straightened_images[base_name] = straightened
             
         except Exception as e:
             import traceback
             traceback.print_exc()
+    return straightened_images
 
 def fit_bottom_edge_line(edge_points, trim_percent=0.15):
     """
