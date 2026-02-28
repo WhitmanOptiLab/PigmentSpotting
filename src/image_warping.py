@@ -13,35 +13,36 @@ import JSON_functions as JSONfunc
 from os import path, listdir
 from skimage import io
 
-# Example image
-image = data.checkerboard()
+def example():
+    # Example image
+    image = data.checkerboard()
 
-# Source keypoints (landmarks) -> need to specify points
-src = np.array([[22, 22], [100, 10], [177, 22], [190, 100],
-                [177, 177], [100, 188], [22, 177], [10, 100]])
+    # Source keypoints (landmarks) -> need to specify points
+    src = np.array([[22, 22], [100, 10], [177, 22], [190, 100],
+                    [177, 177], [100, 188], [22, 177], [10, 100]])
 
-# Target keypoints (desired warped positions) ->need to specify points
-dst = np.array([[0, 0], [100, 0], [200, 0], [200, 100],
-                [200, 200], [100, 200], [0, 200], [0, 100]])
+    # Target keypoints (desired warped positions) ->need to specify points
+    dst = np.array([[0, 0], [100, 0], [200, 0], [200, 100],
+                    [200, 200], [100, 200], [0, 200], [0, 100]])
 
-# Create TPS transform and estimate from target to source
-tps = ThinPlateSplineTransform()
-tps.estimate(dst, src)  # Note inverse mapping for warp()
+    # Create TPS transform and estimate from target to source
+    tps = ThinPlateSplineTransform()
+    tps.estimate(dst, src)  # Note inverse mapping for warp()
 
-# Warp the image using the TPS transform
-warped = warp(image, tps)
+    # Warp the image using the TPS transform
+    warped = warp(image, tps)
 
-# Display original and warped images with landmarks
-fig, (ax1, ax2) = plt.subplots(1, 2)
-ax1.imshow(image, cmap='gray')
-ax1.scatter(src[:, 0], src[:, 1], marker='x', color='red')
-ax1.set_title('Original Image')
+    # Display original and warped images with landmarks
+    fig, (ax1, ax2) = plt.subplots(1, 2)
+    ax1.imshow(image, cmap='gray')
+    ax1.scatter(src[:, 0], src[:, 1], marker='x', color='red')
+    ax1.set_title('Original Image')
 
-ax2.imshow(warped, cmap='gray', extent=(0, 200, 200, 0))
-ax2.scatter(dst[:, 0], dst[:, 1], marker='x', color='red')
-ax2.set_title('Warped Image')
+    ax2.imshow(warped, cmap='gray', extent=(0, 200, 200, 0))
+    ax2.scatter(dst[:, 0], dst[:, 1], marker='x', color='red')
+    ax2.set_title('Warped Image')
 
-plt.show()
+    plt.show()
 
 def get_keypoints(annotation, image):
     keypoints = petals_bottom.get_keypoints(annotation)
@@ -59,11 +60,7 @@ def get_keypoints(annotation, image):
     keypoints = keypoints | corner_keypoints
     return keypoints
 
-def warp(keypoints):
-    src = np.array(keypoints)
-    pass
-
-def warp_petals(input_dir, output_dir):
+def display_keypoints(input_dir, output_dir):
     """Process all vein images in the input directory."""
     os.makedirs(output_dir, exist_ok=True)
 
@@ -168,6 +165,128 @@ def warp_petals(input_dir, output_dir):
                         (0, 255, 255), 3)  # Yellow line
             io.imshow(vis_image)
             io.show()
+        except:
+            pass
+
+def warp_petals(input_dir, output_dir):
+    """Process all vein images in the input directory."""
+    os.makedirs(output_dir, exist_ok=True)
+
+    image_pairs = img_align.get_file_pairs(input_dir)
+    success = 0
+    straightened_images = petals_bottom.process_all_petals(input_dir, output_dir, False)
+    for pair in image_pairs:
+        #print(f"Processing pair: {pair[0]} and {pair[1]}")
+        if "vein" in pair[0].lower():
+            vein_img_filename = pair[0]
+            petal_img_filename = pair[1]
+        else:
+            vein_img_filename = pair[1]
+            petal_img_filename = pair[0]
+
+        petal_image, petal_annotation = JSONfunc.img_crop(petal_img_filename, input_dir)
+        
+        petal_x = petal_annotation["bounding_box"]["x"]
+        petal_y = petal_annotation["bounding_box"]["y"]
+
+
+        #petal_warp_matrix = [[1,0,int(-petal_x)],[0,1,int(-petal_y)]] # adjust the petal annotation
+
+        #petal_annotation_t = JSONfunc.get_transformed_annotations(petal_annotation, petal_warp_matrix)
+
+        #vein initalization for image (vein_image) and dictionary (new_vein_dict)
+
+        vein_annotation = JSONfunc.parse_annotation(vein_img_filename, input_dir, group_attr="label")
+        vein_image = cv2.imread(path.join(input_dir, vein_img_filename),0)
+
+        img_path = os.path.join(input_dir, vein_img_filename)
+        filename = vein_img_filename
+
+        
+        try:
+            # Read image
+            image = vein_image
+            #image = cv2.imread(img_path)
+            if image is None:
+                continue
+            #image is vein image
+            # Look for corresponding JSON file
+            base_name = os.path.splitext(filename)[0]
+            json_path = os.path.join(input_dir, f"{base_name}_labels.json")
+            
+            keypoints = None
+            if os.path.exists(json_path):
+                keypoints = petals_bottom.load_keypoints(json_path)
+            
+            # Process image
+            petal_shape, vein_aligned, warp_matrix = img_align.align_images(petal_image, image)
+            inv_warp_matrix = cv2.invertAffineTransform(warp_matrix) 
+            vein_annotation_t = JSONfunc.get_transformed_annotations(vein_annotation,inv_warp_matrix)
+            aligned_keypoints = petals_bottom.get_keypoints(vein_annotation_t)
+            keypoints = aligned_keypoints
+            #keypoints = vein_annotation_t
+            #Use the straightened image from petals_bottom
+            image = straightened_images[base_name]
+            #image = vein_aligned #fallback
+
+            if image is None:
+                #print('no image')
+                continue
+            # Look for corresponding JSON file
+            if os.path.exists(json_path):
+                #print('getting keypoints')
+                keypoints = get_keypoints(vein_annotation_t, vein_aligned)
+                #keypoints = get_keypoints(vein_annotation_t, image)
+            '''
+            for keypoint in keypoints:
+                #keypoint order is vein_top, vein_bottom, top corner, bottom corner
+                print(keypoint)
+                #keypoint order: vein_top, vein_bottom, top_corner, bottom_corner
+            '''
+            #add keypoints to np.array
+            src_points = np.array([keypoints['center_vein_top'], keypoints['center_vein_bottom'], keypoints['top corner'], keypoints['bottom corner']])
+            #warp to semi circle
+            radius = 200
+            dest_points = np.array([[radius,0], [0,0], [0,-radius], [0, radius]])
+
+            print('beginning TPS deformation on: ' + base_name)
+            tps = ThinPlateSplineTransform()
+            tps.estimate(dest_points, src_points)  # Note inverse mapping for warp()
+            # 1. Define your radius and an offset to prevent clipping
+            radius = 200
+            offset = 450 # Moves the "center" so [0, -200] becomes [250, 50]
+            out_size = 1000 # Large enough to see the whole transformation
+
+            # 2. Shift dest_points so they are all positive
+            # Note: Ensure these are [x, y] to match your src_points format
+            dest_points = np.array([
+                [radius + offset, 0 + offset], 
+                [0 + offset, 0 + offset], 
+                [0 + offset, -radius + offset], 
+                [0 + offset, radius + offset]
+            ])
+
+            print('beginning TPS deformation on: ' + base_name)
+            tps = ThinPlateSplineTransform()
+            tps.estimate(dest_points, src_points) 
+
+            # 3. Explicitly set output_shape (Height, Width)
+            warped = warp(image, tps, output_shape=(out_size, out_size))
+
+            # Display
+            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6))
+            ax1.imshow(image, cmap='gray')
+            ax1.scatter(src_points[:, 0], src_points[:, 1], marker='x', color='red')
+            ax1.set_title('Original Image')
+
+            # 4. Use the actual output size for the extent to keep coordinates 1:1
+            ax2.imshow(warped, cmap='gray', extent=(0, out_size, out_size, 0))
+            ax2.scatter(dest_points[:, 0], dest_points[:, 1], marker='x', color='red')
+            ax2.set_title('Warped Image (Shifted to Fit)')
+
+            plt.show()
+
+
         except:
             pass
 
