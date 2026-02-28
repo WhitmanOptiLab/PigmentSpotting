@@ -118,7 +118,7 @@ def create_spot_point_clouds(Pca_image, processed_stats, th):
 def get_gaussians_image(processed_stats_for_spot , m_w_c):
 
     # Creates a mesh-grid that is the same size of the spot image using the stats from connected components
-    # Then uses the means, weights, and co-variances from the GMM model to overlay each guassian in its respective spot
+    # Then uses the means, weights, and co-variances from the GMM model to overlay each gaussian in its respective spot
     # Returns an image of every gaussian for the respective spot
 
     x,y = np.mgrid[ 0:processed_stats_for_spot[3]:processed_stats_for_spot[3] * 1j, 0:processed_stats_for_spot[2]:processed_stats_for_spot[2] * 1j]

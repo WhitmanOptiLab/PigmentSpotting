@@ -7,6 +7,7 @@ from skimage import io
 import math
 import JSON_functions as JSONfunc
 import image_utilities as img_util
+import image_keypoints as img_key
 from os import path, listdir
 
 def shapeStatistics(shape_image):
@@ -14,6 +15,7 @@ def shapeStatistics(shape_image):
     skew identified in different directions
     orientation could use improvement
     """
+    #print('calculating shape statistics')
     moments = cv2.moments(shape_image)
     center = moments["m10"]/moments["m00"], moments["m01"]/moments["m00"] # centeroid formula
     area = moments["m00"]
@@ -25,31 +27,32 @@ def shapeStatistics(shape_image):
     #The angle given here will always be in the range [-45,45], whichever axis falls 
     # within that range. To make sure we get the major axis, we need use use this method:
     #  Citation: http://breckon.eu/toby/teaching/dip/opencv/SimpleImageAnalysisbyMoments.pdf
+    #print("running shape statistics: ")
     if (u20 - u02) < 0:
         if u11 > 0:
             angle += 90
         else:
             angle -=90
-
-    #Straighten the shape so that we can figure out which way is the "head" based on the aligned 
-    # third moment (e.g. skewness)
+        #Straighten the shape so that we can figure out which way is the "head" based on the aligned 
+        # third moment (e.g. skewness)
+    rotation = cv2.getRotationMatrix2D(center, -angle, 1)
     rotation = cv2.getRotationMatrix2D(center, -angle, 1).astype(np.float32)
     aligned = cv2.warpAffine(shape_image, rotation, shape_image.shape, flags=cv2.INTER_LINEAR)
     flat_moments = cv2.moments(aligned)
     if flat_moments["mu03"] < 0:
         angle += 180
-
     length = np.sqrt(2*(u20 + u02 + np.sqrt(4*(u11**2) + (u20-u02)**2)))
     width = np.sqrt(2*(u20 + u02 - np.sqrt(4*(u11**2) + (u20-u02)**2)))
+    
     return (center, area, angle, length, width)
 
 def match_images(petal_image, vein_image, s1, s2):
     sz = petal_image.shape
     #Consruct an initial guess of the transformation required to align the two images
     (PetalCenter, PetalArea, PetalAngle, PetalLength, PetalWidth) = shapeStatistics(s1)
-    # print(f"petal stats: center = {PetalCenter}, area = {PetalArea}, angle = {PetalAngle}")
+    #print(f"petal stats: center = {PetalCenter}, area = {PetalArea}, angle = {PetalAngle}")
     (VeinCenter, VeinArea, VeinAngle, VeinLength, VeinWidth) = shapeStatistics(s2)
-    # print(f"vein stats: center = {VeinCenter}, area = {VeinArea}, angle = {VeinAngle}")
+    #print(f"vein stats: center = {VeinCenter}, area = {VeinArea}, angle = {VeinAngle}")
     scale = math.sqrt(VeinArea/PetalArea)
     number_of_iterations = 100
     termination_eps = 1e-5
@@ -65,12 +68,11 @@ def match_images(petal_image, vein_image, s1, s2):
     warp_matrix_rotated[0][2] += VeinCenter[0] - PetalCenter[0] # translation offset
     warp_matrix_rotated[1][2] += VeinCenter[1] - PetalCenter[1]
     #Getting annotations; recreate new dimensional conditions
+        
 
     try:
         (cc, warp) = cv2.findTransformECC(s1,s2,warp_matrix, cv2.MOTION_AFFINE, criteria, inputMask=None, gaussFiltSize=5)
-
-        (cc0, warp0) = cv2.findTransformECC(s1, s2, warp_matrix_rotated, cv2.MOTION_AFFINE, criteria, inputMask=None, gaussFiltSize=5)
-        
+        (cc0, warp0) = cv2.findTransformECC(s1, s2, warp_matrix_rotated, cv2.MOTION_AFFINE, criteria, inputMask=None, gaussFiltSize=5)        
         # print(f"cc: {cc} cc1: {cc0}")
 
         if cc0 > cc:
@@ -86,7 +88,24 @@ def match_images(petal_image, vein_image, s1, s2):
         io.show()
     elif cc == 0:
         raise ValueError("Cannot find any alignment for the images provided.")
-    return cv2.warpAffine(cv2.bitwise_and(vein_image,s2), warp, (sz[1],sz[0]), flags=cv2.INTER_LINEAR + cv2.WARP_INVERSE_MAP), warp
+    #return cv2.warpAffine(cv2.bitwise_and(vein_image,s2), warp, (sz[1],sz[0]), flags=cv2.INTER_LINEAR + cv2.WARP_INVERSE_MAP), warp
+    # 1. Warp the vein image into petal space
+    aligned_vein = cv2.warpAffine(
+        vein_image,
+        warp,
+        (sz[1], sz[0]),
+        flags=cv2.INTER_LINEAR + cv2.WARP_INVERSE_MAP
+    )
+
+    # 2. Apply the PETAL silhouette mask (s1), not the vein mask (s2)
+    if len(aligned_vein.shape) == 3:
+        petal_mask_3 = cv2.merge([s1, s1, s1])
+        silhouette_matched = cv2.bitwise_and(aligned_vein, petal_mask_3)
+    else:
+        silhouette_matched = cv2.bitwise_and(aligned_vein, s1)
+
+    return silhouette_matched, warp
+
 
 def combine_imgs(img1, img2):
     grimg = cv2.cvtColor(img2,cv2.COLOR_GRAY2BGR)
@@ -98,17 +117,31 @@ def combine_imgs(img1, img2):
 #add arguements: petal_filename, petal_image_path,
 def align_images(petal_img, vein_img, raw_vein=True):
     petal_shape = shapes.get_petal_shape(petal_img)
-#    petal_shape = shapes.petal_shape_fromBB(petal_img,petal_filename,petal_image_path)
+    #petal_shape = shapes.petal_shape_fromBB(petal_img,petal_filename,petal_image_path)
     if raw_vein: 
         vein_shape = shapes.get_vein_shape(vein_img)
     else:
         vein_shape = shapes.get_filtered_vein_shape(vein_img)
-
     #also take forward the 'warp_matrix' to use for annotations transformations
     vein_aligned,warp_matrix = match_images(petal_img, vein_img, petal_shape,vein_shape) 
     # vein shape and petal shape are the masks of each petal 
+    
     return petal_shape, vein_aligned, warp_matrix
 
+
+    
+
+def add_keypoints(petal_img, vein_img):
+    #redunant function with image_kayepoints
+    petal_shape, vein_aligned, warp_matrix = align_images(petal_img, vein_img)
+    #petal shape is a black and white mask of the shape. should be useful for keypoint detection
+    contours, hierarchy = cv2.findContours(petal_shape, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    img_with_keypoints = petal_img.copy()
+    for cnt in contours:
+        for point in cnt:
+            cv2.circle(img_with_keypoints, tuple(point[0]), 1, (255,255,255), -1)
+    #points are in (x,y) format in json file as opposed to drawing them.
+    return img_with_keypoints
           
 def get_file_pairs(dir):
     dataset = listdir(dir)
@@ -131,15 +164,14 @@ def main():
     
     if (len(sys.argv) != 2):
         raise ValueError("Usage: image_alignment.py <image_directory>")
-    
     image_directory = sys.argv[1]
 
-    image_pairs = get_file_pairs(image_directory)
+    image_pairs = get_file_pairs(image_directory) #takes a while sometimes
 
     show = input("Show overlaid images? (y/n): ")
 
     for pair in image_pairs:
-
+        #print(f"Processing pair: {pair[0]} and {pair[1]}")
         if "vein" in pair[0].lower():
             vein_img_filename = pair[0]
             petal_img_filename = pair[1]
@@ -164,29 +196,57 @@ def main():
 
         #get 'warp_matrix' from 'align_images' function and set = to 'vein_warp_matrix'
 
+        cut_line = img_key.perpendicular_line(petal_image, vein_image, vein_annotation)
+        perpenducular_cut = img_key.perpendicular_cut(petal_image, vein_image, vein_annotation)
         petal_shape, vein_aligned, warp_matrix = align_images(petal_image, vein_image)
+        img_with_keypoints = add_keypoints(petal_image, vein_image)
+        if show == "y":
+            io.imshow(cut_line)
+            io.show()
+            io.imshow(perpenducular_cut)
+            io.show()
+            io.imshow(img_with_keypoints)
+            io.show()
+            io.imshow(petal_shape)
+            io.show()
+            io.imshow(petal_image) 
+            io.show()
+            io.imshow(vein_aligned)
+            io.show()
+            
+        #cv2.imshow('petal shape',petal_shape)
+            
 
         inv_warp_matrix = cv2.invertAffineTransform(warp_matrix) 
-        
+            
         vein_annotation_t = JSONfunc.get_transformed_annotations(vein_annotation,inv_warp_matrix)
 
         #vein annotations
-
+        #believe this to be the cause of the incorrect colors however removing it makes the images different sizes?
         masked_petal = cv2.bitwise_and(petal_image,cv2.cvtColor(petal_shape, cv2.COLOR_GRAY2BGR),) 
-           
+        #io.imshow(masked_petal)
+        #io.show()
+            
+        combined = combine_imgs(masked_petal, vein_aligned)
+        combined = JSONfunc.display_annotations(petal_annotation_t,combined)
+        #io.imshow(combined) #unnessecary?
+        combined = JSONfunc.display_annotations(vein_annotation_t,combined)        #vein annotations
+        inv_warp_matrix = cv2.invertAffineTransform(warp_matrix) 
         if (show == "y"):    
-            combined = combine_imgs(masked_petal, vein_aligned)
-            combined = JSONfunc.display_annotations(petal_annotation_t,combined)
-            combined = JSONfunc.display_annotations(vein_annotation_t,combined)        #vein annotations
-            inv_warp_matrix = cv2.invertAffineTransform(warp_matrix) 
+                
             # updated_vein_dict = JSONfunc.get_transformed_annotations(vein_annotation,inv_warp_matrix)
             io.imshow(combined)
+            #color images of saved images
             io.show()
             
+        combined_outfile = petal_img_filename[:petal_img_filename.rfind('.')] + "_combined" + petal_img_filename[petal_img_filename.rfind('.'):]
+        combined_bgr = cv2.cvtColor(combined, cv2.COLOR_RGB2BGR)
+        cv2.imwrite(combined_outfile, combined_bgr)
         petal_outfile = petal_img_filename[:petal_img_filename.rfind('.')] + "_pca" + petal_img_filename[petal_img_filename.rfind('.'):]
         cv2.imwrite(petal_outfile, pca.pca_to_grey(petal_image, petal_shape, True))
         vein_outfile = vein_img_filename[:vein_img_filename.rfind('.')] + "_aligned" + vein_img_filename[vein_img_filename.rfind('.'):]
         cv2.imwrite(vein_outfile, vein_aligned)
+        
 
     
 if __name__ == "__main__":

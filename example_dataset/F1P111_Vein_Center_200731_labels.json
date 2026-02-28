@@ -13,7 +13,7 @@
                     "cy": 473
                 },
                 "region_attributes": {
-                    "label ": "center_vein_top"
+                    "label": "center_vein_top"
                 }
             },
             "1": {
@@ -23,7 +23,7 @@
                     "cy": 432
                 },
                 "region_attributes": {
-                    "label ": "center_vein_bottom"
+                    "label": "center_vein_bottom"
                 }
             }
         }

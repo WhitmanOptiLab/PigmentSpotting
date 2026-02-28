@@ -44,7 +44,7 @@ def flood_fill(im):
     mask = np.zeros((h+2, w+2), np.uint8)
 
     # Floodfill from point (0, 0)
-    cv2.floodFill(im_floodfill, mask, (0,0), 255);
+    cv2.floodFill(im_floodfill, mask, (0,0), 255)
 
     # Invert floodfilled image
     im_floodfill_inv = cv2.bitwise_not(im_floodfill)
@@ -154,7 +154,7 @@ def get_filtered_vein_shape(im):
     mask = np.zeros((h+2, w+2), np.uint8)
 
     # Floodfill from point (0, 0)
-    cv2.floodFill(im_floodfill, mask, (0,0), 255);
+    cv2.floodFill(im_floodfill, mask, (0,0), 255)
 
     # Invert floodfilled image
     im_floodfill_inv = cv2.bitwise_not(im_floodfill)
@@ -162,7 +162,6 @@ def get_filtered_vein_shape(im):
     return im_th
 
 def get_vein_shape(im):
-
     im = img_util.remove_edge(im) # crop out any edges that might mess up shape recognition
 
     blur = cv2.GaussianBlur(im, (5, 5), 0)
@@ -187,15 +186,18 @@ def tobacco_analysis(image_filename,file_path):
     # im = cv2.imread(os.)
     croppedImg, new_dict = JSONfunc.img_crop(image_filename,file_path)
 #    cv2.grabCut()
-    return img
+    return croppedImg
 
 
 def main():
 #    img_name = '/home/rajt/Desktop/Pipeline_Dataset_Test/F1P115_Vein_Side1_200802.jpg'
-    img_name = '/home/rajt/Desktop/Ex_Tobacco_Data/5-20_leaf11_back.NEF'    
-    im = cv2.imread(img_name,1)
-#    print(im.shape)
+    #img_name = '/home/paxto/Desktop/Code/Capstone/PigmentSpotting/PigmentSpotting/data/Pipeline_Dataset_Test/F1P111_Vein_Center_200731.jpg' 
+    img_name = r'C:\Users\paxto\Desktop\Code\Capstone\PigmentSpotting\PigmentSpotting\example_dataset\F1P111_Spot_Side1_200730.JPG'
+    im = cv2.imread(img_name)
+    print(im.shape)
     big_im = cv2.resize(im, (0,0), fx=2, fy=2)
+    petal_shape = get_petal_shape(im)
+    #cv2.imshow('petal shape',petal_shape)
     cv2.imshow('image',big_im)
     cv2.waitKey(0)
 

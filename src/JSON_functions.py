@@ -43,11 +43,16 @@ def parse_annotation(image_name, project_dir, group_attr=None, id_attr=None):
         data_list = data[top_layer]['regions']
 
     for annotation in data_list:
+        #print(data_list)
         if group_attr: # if an attribute to group by is specified
             if (len(annotation['region_attributes']) == 0) and (len(data_list) == 1):
                 attr = "bounding_box"
             else:
-                attr = annotation['region_attributes'][group_attr]
+                #print("testing annotation['region_attributes']: ")
+                #print(annotation['region_attributes'])
+                #print(group_attr)
+                #print(filepath)
+                attr = annotation['region_attributes'][group_attr] #error spotted here
             if id_attr: # if an attribute to id by is specified
                 if attr not in new_dict.keys():
                     new_dict[attr] = {}
@@ -90,14 +95,17 @@ def img_crop(image_filename,file_path):
     '''
     #create full file routing information
     image_full = os.path.join(file_path,image_filename)
-    print(image_full)
+    #print(image_full)
     #read the image
-    img = cv.imread(image_full,cv.IMREAD_COLOR)
+    img = cv.imread(image_full,cv.IMREAD_COLOR) #think this is altering the colors.
+    #print('image type:', type(img))
+    #img = cv.UMat(img) #gpu acceleration
+    img = cv.cvtColor(img, cv.COLOR_BGR2RGB) #possible fix for color issue. fixed.
     assert not isinstance(img,type(None)), 'image not found'
     
     #Get Truncated Dictionary:
     new_dict = parse_annotation(image_filename,file_path, group_attr='label')
-    print(new_dict)
+    #print(new_dict)
     #Parse through each object's data for rectangle objects
     crop_key = 'bounding_box'
     if crop_key in new_dict:            
@@ -111,7 +119,6 @@ def img_crop(image_filename,file_path):
 
     else:
         raise ValueError("Image crop failed: \n  Annotation key " + crop_key + " not found in annotations file for " + image_filename)
-
     return croppedImg, new_dict
 
 
@@ -184,6 +191,15 @@ def main():
     for file in files:
         if not file.endswith("_labels.json"):
             print(parse_annotation(file, sys.argv[1], group_attr='label'), '\n')
+            img_crop(file, sys.argv[1])
+            print('\n')
+            '''
+            img = cv.imread(file, cv.IMREAD_COLOR)
+            display_annotations(parse_annotation(file, sys.argv[1], group_attr='label'), img)
+            print('\n')
+            '''
+
+
 
 #    img = cv.imread(image_filename,cv2.IMREAD_COLOR)
 #    cv.imshow('Image loaded with annotations layer applied!',img)
@@ -204,4 +220,7 @@ def main():
 #    cv.waitKey(0)
             
 #main()
+
+if __name__ == "__main__":
+    main()
 
