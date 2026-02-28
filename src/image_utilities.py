@@ -98,3 +98,57 @@ def remove_edge(img):
             cv2.fillPoly(img, [pts], 0)
     
     return img
+
+def is_point_below_line(point_p, point1, point2):
+    """
+    Checks if point_p is below the line defined by point1 and point2.
+    Assumes a standard image coordinate system (y increases downwards).
+    """
+    xp, yp = point_p
+    x1, y1 = point1
+    x2, y2 = point2
+
+    # Handle vertical lines to prevent division by zero
+    if x2 == x1:
+        # If vertical, "below" can be defined by the x position relative to a reference (e.g., left/right)
+        # Here we consider 'below' to be relative to the y-axis, which is not applicable.
+        # This function focuses on non-vertical lines for 'below'/'above' comparison.
+        return None 
+
+    # Calculate slope (a) and y-intercept (b)
+    a = (y2 - y1) / (x2 - x1)
+    b = y1 - a * x1
+
+    # Calculate the y-value on the line at the point's x-coordinate
+    y_on_line = a * xp + b
+
+    # In a typical image coordinate system, y increases as you go down.
+    # So, yp > y_on_line means the point is "below" the line.
+    # yp < y_on_line means the point is "above" the line.
+    if yp > y_on_line:
+        return True  # Point is below the line
+    elif yp < y_on_line:
+        return False # Point is above the line
+    else:
+        return None  # Point is on the line
+    
+def is_left_of_line(point1, point2, point_p):
+    """
+    Check if point P is to the left of the directed line from A to B using the cross product.
+    A, B, P are tuples/lists/objects with x and y attributes (e.g., (x, y)).
+    """
+    # Vector AB: (Bx - Ax, By - Ay)
+    # Vector AP: (Px - Ax, Py - Ay)
+    # Cross product magnitude: (Bx - Ax) * (Py - Ay) - (By - Ay) * (Px - Ax)
+    cross_product = (point2[0] - point1[0]) * (point_p[1] - point1[1]) - (point2[1] - point1[1]) * (point_p[0] - point1[0])
+    
+    # Use a small threshold (epsilon) for floating-point comparisons
+    threshold = 1e-9
+    if cross_product > threshold:
+        return True  # Left
+    elif cross_product < -threshold:
+        return False # Right
+    else:
+        # Point is on the line
+        # Depending on exact requirements, you might want to return "on_line" or treat it as True/False
+        return False # Or True, as per specific logic needs

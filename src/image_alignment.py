@@ -142,6 +142,24 @@ def add_keypoints(petal_img, vein_img):
             cv2.circle(img_with_keypoints, tuple(point[0]), 1, (255,255,255), -1)
     #points are in (x,y) format in json file as opposed to drawing them.
     return img_with_keypoints
+
+def get_edge_keypoints(petal_shape, top_corner, bottom_corner, vein_top, vein_bottom):
+    contours, hierarchy = cv2.findContours(petal_shape, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    edge_keypoints_top = []
+    edge_keypoints_bottom = []
+    counter = 0
+    for cnt in contours:
+        #print('checking contour: ' + str(cnt))
+        for point in cnt:
+            #print('checking point: ' + str(point))
+            if counter % 100 == 0:
+                #print(f"checking point {counter} for edge keypoints")
+                if img_util.is_left_of_line(top_corner, bottom_corner, point[0]) and img_util.is_point_below_line(vein_top, vein_bottom, point[0]):
+                    edge_keypoints_bottom.append(tuple(point[0]))
+                elif img_util.is_left_of_line(top_corner, bottom_corner, point[0]) and not(img_util.is_point_below_line(vein_top, vein_bottom, point[0])):
+                    edge_keypoints_top.append(tuple(point[0]))
+            counter += 1
+    return edge_keypoints_top, edge_keypoints_bottom
           
 def get_file_pairs(dir):
     dataset = listdir(dir)

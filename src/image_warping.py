@@ -129,13 +129,35 @@ def display_keypoints(input_dir, output_dir):
                 #print('getting keypoints')
                 keypoints = get_keypoints(vein_annotation_t, vein_aligned)
                 #keypoints = get_keypoints(vein_annotation_t, image)
+            #print('getting edge keypoints')
+            edge_keypoints_top, edge_keypoints_bottom = img_align.get_edge_keypoints(petal_shape, keypoints['top corner'], keypoints['bottom corner'], 
+                                                                                     keypoints['center_vein_top'], keypoints['center_vein_bottom'])
             '''
             for keypoint in keypoints:
                 #keypoint order is vein_top, vein_bottom, top corner, bottom corner
                 print(keypoint)
             '''
+
+            '''
+            for keypoint in edge_keypoints_top:
+                print('top edge keypoint: ' + str(keypoint))
+            for keypoint in edge_keypoints_bottom:
+                print('bottom edge keypoint: ' + str(keypoint))
+            '''
             
             vis_image = image.copy()
+
+            for keypoint in edge_keypoints_top:
+                cv2.circle(vis_image, keypoint, 15, (255, 0, 0), -1)  # Blue
+                cv2.putText(vis_image, "TOP EDGE", 
+                          (keypoint[0] + 20, keypoint[1]), 
+                          cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 0, 0), 2)
+            for keypoint in edge_keypoints_bottom:
+                cv2.circle(vis_image, keypoint, 15, (0, 255, 0), -1)  # Green
+                cv2.putText(vis_image, "BOTTOM EDGE", 
+                          (keypoint[0] + 20, keypoint[1]), 
+                          cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0), 2) 
+
             if 'center_vein_bottom' in keypoints:
                 cv2.circle(vis_image, keypoints['center_vein_bottom'], 15, (255, 0, 255), -1)  # Magenta
                 cv2.putText(vis_image, "BOTTOM", 
@@ -243,6 +265,7 @@ def warp_petals(input_dir, output_dir):
                 print(keypoint)
                 #keypoint order: vein_top, vein_bottom, top_corner, bottom_corner
             '''
+            print(keypoints.values())
             #add keypoints to np.array
             src_points = np.array([keypoints['center_vein_top'], keypoints['center_vein_bottom'], keypoints['top corner'], keypoints['bottom corner']])
             #warp to semi circle
@@ -255,18 +278,26 @@ def warp_petals(input_dir, output_dir):
 
             # Warp the image using the TPS transform
             warped = warp(image, tps)
+            #io.imshow(warped)
+            #io.show()
 
+            
             # Display original and warped images with landmarks
             fig, (ax1, ax2) = plt.subplots(1, 2)
             ax1.imshow(image, cmap='gray')
             ax1.scatter(src_points[:, 0], src_points[:, 1], marker='x', color='red')
+            for i, point in enumerate(src_points):
+                ax1.annotate(f'KP{i+1}', (point[0] + 5, point[1] - 5), color='red', fontsize=12)
             ax1.set_title('Original Image')
 
-            ax2.imshow(warped, cmap='gray', extent=(0, 200, 200, 0))
+            ax2.imshow(warped, cmap='gray', extent=(0, 1000, 1000, 0))
             ax2.scatter(dest_points[:, 0], dest_points[:, 1], marker='x', color='red')
+            for i, point in enumerate(dest_points):
+                ax2.annotate(f'KP{i+1}', (point[0] + 5, point[1] - 5), color='red', fontsize=12)
             ax2.set_title('Warped Image')
 
             plt.show()
+            
 
 
         except:
@@ -276,4 +307,6 @@ if __name__ == "__main__":
     if len(sys.argv) < 3:
         sys.exit(1)
     #example cmd line: python3 .\image_warping.py ..\example_dataset ..\output
-    warp_petals(sys.argv[1], sys.argv[2])
+    #example()
+    display_keypoints(sys.argv[1], sys.argv[2])
+    #warp_petals(sys.argv[1], sys.argv[2])
