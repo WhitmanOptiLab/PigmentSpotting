@@ -152,3 +152,23 @@ def is_left_of_line(point1, point2, point_p):
         # Point is on the line
         # Depending on exact requirements, you might want to return "on_line" or treat it as True/False
         return False # Or True, as per specific logic needs
+    
+def circle_keypoints(radius, n_points_top, n_points_bottom):
+    # 1. Generate N angles from 0 to pi (180 degrees)
+    angles_top = np.linspace(0, np.pi/2, n_points_top + 2)[1:-1]  # Exclude the endpoints
+    angles_bottom = np.linspace(np.pi/2, np.pi, n_points_bottom + 2)[1:-1]  # Exclude the endpoints
+    
+    # 2. Calculate x and y coordinates
+    keypoints_top = []  
+    for angle in angles_top:
+        x = radius * np.cos(angle)
+        y = radius * np.sin(angle)
+        keypoints_top.append((x, y))
+    keypoints_bottom = []
+    for angle in angles_bottom:
+        x = radius * np.cos(angle)
+        y = radius * np.sin(angle)
+        keypoints_bottom.append((x, y))
+    return keypoints_top, keypoints_bottom
+    
+    

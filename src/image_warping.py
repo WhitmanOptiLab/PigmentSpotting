@@ -9,6 +9,7 @@ import cv2
 import glob
 import json
 import image_alignment as img_align
+import image_utilities as img_util
 import JSON_functions as JSONfunc
 from os import path, listdir
 from skimage import io
@@ -59,6 +60,10 @@ def get_keypoints(annotation, image):
     keypoints['center_vein_bottom'] = new_bottom
     keypoints = keypoints | corner_keypoints
     return keypoints
+
+def clean_kp(kp):
+    kp = np.array(kp).flatten()
+    return (int(kp[0]), int(kp[1]))
 
 def display_keypoints(input_dir, output_dir):
     """Process all vein images in the input directory."""
@@ -131,7 +136,7 @@ def display_keypoints(input_dir, output_dir):
                 #keypoints = get_keypoints(vein_annotation_t, image)
             #print('getting edge keypoints')
             edge_keypoints_top, edge_keypoints_bottom = img_align.get_edge_keypoints(petal_shape, keypoints['top corner'], keypoints['bottom corner'], 
-                                                                                     keypoints['center_vein_top'], keypoints['center_vein_bottom'])
+                                                                                     keypoints['center_vein_top'], keypoints['center_vein_bottom'], 200)
             '''
             for keypoint in keypoints:
                 #keypoint order is vein_top, vein_bottom, top corner, bottom corner
@@ -185,10 +190,77 @@ def display_keypoints(input_dir, output_dir):
             if 'top corner' in keypoints and 'bottom corner' in keypoints:
                 cv2.line(vis_image, keypoints['top corner'], keypoints['bottom corner'], 
                         (0, 255, 255), 3)  # Yellow line
-            io.imshow(vis_image)
+                
+            if len(vis_image.shape) == 2:
+                vis_image = cv2.cvtColor(vis_image, cv2.COLOR_GRAY2BGR)
+
+                
+            # --- Create a canvas with extra width for the second semi-circle ---
+            h, w = vis_image.shape[:2]
+            extra_width = w // 2  # or any width you want for the second shape
+
+            canvas = np.zeros((h, w + extra_width, 3), dtype=np.uint8)
+
+            # Copy the original visualization into the left side
+            canvas[:, :w] = vis_image
+
+            # --- Draw a second semi-circle on the right side ---
+            center_x = w + extra_width // 2
+            center_y = h // 2
+            radius = min(h, extra_width) // 3
+
+            # Draw the semi-circle (180° arc)
+            cv2.ellipse(
+                canvas,
+                (center_x, center_y),
+                (radius, radius),
+                0,          # rotation
+                0, 180,     # startAngle, endAngle
+                (0, 128, 255),  # color
+                5           # thickness
+            )
+
+            # Optional label
+            cv2.putText(canvas, "SECOND SEMI-CIRCLE",
+                        (center_x - radius, center_y + radius + 40),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 128, 255), 2)
+            
+            num_circle_keypoints_top = len(edge_keypoints_top)
+            num_circle_keypoints_bottom = len(edge_keypoints_bottom)
+            circle_keypoints_top, circle_keypoints_bottom = img_util.circle_keypoints(radius, num_circle_keypoints_top, num_circle_keypoints_bottom)
+            offset = w
+            for keypoint in circle_keypoints_top:
+                x, y = keypoint
+
+                # translate from local circle coordinates to arc center
+                x_new = int(center_x + x)
+                y_new = int(center_y + y)
+
+                cv2.circle(canvas, (x_new, y_new), 15, (0, 0, 255), -1)
+                cv2.putText(canvas, "TOP EDGE",
+                            (x_new + 20, y_new),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255), 2)
+
+            for keypoint in circle_keypoints_bottom:
+                x, y = keypoint
+
+                x_new = int(center_x + x)
+                y_new = int(center_y + y)
+
+                cv2.circle(canvas, (x_new, y_new), 15, (0, 255, 0), -1)
+                cv2.putText(canvas, "BOTTOM EDGE",
+                            (x_new + 20, y_new),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0), 2) 
+
+            # Display the combined image
+            io.imshow(canvas)
             io.show()
-        except:
-            pass
+
+            #io.imshow(vis_image)
+            #io.show()
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
 
 def warp_petals(input_dir, output_dir):
     """Process all vein images in the input directory."""
@@ -259,22 +331,41 @@ def warp_petals(input_dir, output_dir):
                 #print('getting keypoints')
                 keypoints = get_keypoints(vein_annotation_t, vein_aligned)
                 #keypoints = get_keypoints(vein_annotation_t, image)
+
+
+            edge_keypoints_top, edge_keypoints_bottom = img_align.get_edge_keypoints(petal_shape, keypoints['top corner'], keypoints['bottom corner'], 
+                                                                                     keypoints['center_vein_top'], keypoints['center_vein_bottom'], 100)
+            
+            
             '''
             for keypoint in keypoints:
                 #keypoint order is vein_top, vein_bottom, top corner, bottom corner
                 print(keypoint)
                 #keypoint order: vein_top, vein_bottom, top_corner, bottom_corner
             '''
-            print(keypoints.values())
+            '''
+            for keypoint in edge_keypoints_top:
+                print('top edge keypoint: ' + str(keypoint))
+            for keypoint in edge_keypoints_bottom:
+                print('bottom edge keypoint: ' + str(keypoint))
+            '''
+            #print(keypoints.values())
             #add keypoints to np.array
             src_points = np.array([keypoints['center_vein_top'], keypoints['center_vein_bottom'], keypoints['top corner'], keypoints['bottom corner']])
+            src_points = np.concatenate((src_points, edge_keypoints_top, edge_keypoints_bottom), axis=0)
             #warp to semi circle
             radius = 200
+            num_circle_keypoints_top = len(edge_keypoints_top)
+            num_circle_keypoints_bottom = len(edge_keypoints_bottom)
+            circle_keypoints_top, circle_keypoints_bottom = img_util.circle_keypoints(radius, num_circle_keypoints_top, num_circle_keypoints_bottom)
             dest_points = np.array([[radius,0], [0,0], [0,-radius], [0, radius]])
-
+            dest_points = np.concatenate((dest_points, circle_keypoints_top, circle_keypoints_bottom), axis=0)
             print('beginning TPS deformation on: ' + base_name)
             tps = ThinPlateSplineTransform()
-            tps.estimate(dest_points, src_points)  # Note inverse mapping for warp()
+            success = tps.estimate(dest_points, src_points)  # Note inverse mapping for warp()
+            if not success:
+                print(f"TPS estimation failed for {base_name}")
+                continue
 
             # Warp the image using the TPS transform
             warped = warp(image, tps)
@@ -283,6 +374,7 @@ def warp_petals(input_dir, output_dir):
 
             
             # Display original and warped images with landmarks
+            print('displaying results for: ' + base_name)
             fig, (ax1, ax2) = plt.subplots(1, 2)
             ax1.imshow(image, cmap='gray')
             ax1.scatter(src_points[:, 0], src_points[:, 1], marker='x', color='red')
@@ -300,13 +392,15 @@ def warp_petals(input_dir, output_dir):
             
 
 
-        except:
-            pass
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:
         sys.exit(1)
     #example cmd line: python3 .\image_warping.py ..\example_dataset ..\output
     #example()
-    display_keypoints(sys.argv[1], sys.argv[2])
-    #warp_petals(sys.argv[1], sys.argv[2])
+    #display_keypoints(sys.argv[1], sys.argv[2])
+    warp_petals(sys.argv[1], sys.argv[2])
