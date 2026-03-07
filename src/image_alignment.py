@@ -147,6 +147,7 @@ def get_edge_keypoints(petal_shape, top_corner, bottom_corner, vein_top, vein_bo
     contours, hierarchy = cv2.findContours(petal_shape, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
     edge_keypoints_top = []
     edge_keypoints_bottom = []
+
     counter = 0
     for cnt in contours:
         #print('checking contour: ' + str(cnt))
@@ -154,11 +155,35 @@ def get_edge_keypoints(petal_shape, top_corner, bottom_corner, vein_top, vein_bo
             #print('checking point: ' + str(point))
             if counter % check_every_n == 0:
                 #print(f"checking point {counter} for edge keypoints")
-                if img_util.is_left_of_line(top_corner, bottom_corner, point[0]) and img_util.is_point_below_line(vein_top, vein_bottom, point[0]):
+                if img_util.is_left_of_line(top_corner, bottom_corner, point[0]) and img_util.is_point_below_line(point[0], vein_top, vein_bottom):
                     edge_keypoints_bottom.append(tuple(point[0]))
-                elif img_util.is_left_of_line(top_corner, bottom_corner, point[0]) and not(img_util.is_point_below_line(vein_top, vein_bottom, point[0])):
+                elif img_util.is_left_of_line(top_corner, bottom_corner, point[0]) and not(img_util.is_point_below_line(point[0], vein_top, vein_bottom)):
                     edge_keypoints_top.append(tuple(point[0]))
             counter += 1
+
+    vein_vec = np.array([vein_bottom[0] - vein_top[0], vein_bottom[1] - vein_top[1]], dtype=float)
+    vein_len = np.linalg.norm(vein_vec)
+    vein_unit = vein_vec / vein_len
+
+    # Compute the reference vein direction vector once
+    vein_dir = np.array([vein_top[0] - vein_bottom[0], vein_top[1] - vein_bottom[1]], dtype=float)
+    vein_dir /= np.linalg.norm(vein_dir)
+
+    def angle_from_vein(pt):
+        pt_vec = np.array([pt[0] - vein_bottom[0], pt[1] - vein_bottom[1]], dtype=float)
+        norm = np.linalg.norm(pt_vec)
+        if norm == 0:
+            return 0.0
+        pt_vec /= norm
+        # Signed angle using cross product to distinguish top vs bottom side
+        cos_a = np.clip(np.dot(vein_dir, pt_vec), -1.0, 1.0)
+        cross = vein_dir[0] * pt_vec[1] - vein_dir[1] * pt_vec[0]
+        angle = np.arccos(cos_a)
+        return angle if cross >= 0 else -angle
+
+    edge_keypoints_top    = sorted(edge_keypoints_top,    key=angle_from_vein)
+    edge_keypoints_bottom = sorted(edge_keypoints_bottom, key=angle_from_vein)
+
     return edge_keypoints_top, edge_keypoints_bottom
           
 def get_file_pairs(dir):

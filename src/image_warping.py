@@ -151,6 +151,8 @@ def display_keypoints(input_dir, output_dir):
             '''
             
             vis_image = image.copy()
+            if len(vis_image.shape) == 2:
+                vis_image = cv2.cvtColor(vis_image, cv2.COLOR_GRAY2BGR)
 
             for keypoint in edge_keypoints_top:
                 cv2.circle(vis_image, keypoint, 15, (255, 0, 0), -1)  # Blue
@@ -191,13 +193,12 @@ def display_keypoints(input_dir, output_dir):
                 cv2.line(vis_image, keypoints['top corner'], keypoints['bottom corner'], 
                         (0, 255, 255), 3)  # Yellow line
                 
-            if len(vis_image.shape) == 2:
-                vis_image = cv2.cvtColor(vis_image, cv2.COLOR_GRAY2BGR)
+            
 
                 
             # --- Create a canvas with extra width for the second semi-circle ---
             h, w = vis_image.shape[:2]
-            extra_width = w // 2  # or any width you want for the second shape
+            extra_width = w   # or any width you want for the second shape
 
             canvas = np.zeros((h, w + extra_width, 3), dtype=np.uint8)
 
@@ -205,17 +206,18 @@ def display_keypoints(input_dir, output_dir):
             canvas[:, :w] = vis_image
 
             # --- Draw a second semi-circle on the right side ---
-            center_x = w + extra_width // 2
+            center_x = (w + extra_width // 2) - 20
             center_y = h // 2
-            radius = min(h, extra_width) // 3
+            cv2.circle(canvas, (center_x, center_y), 5, (0, 128, 255), -1)  # Center point
+            radius = min(h, extra_width) // 2
 
             # Draw the semi-circle (180° arc)
             cv2.ellipse(
                 canvas,
                 (center_x, center_y),
                 (radius, radius),
-                0,          # rotation
-                0, 180,     # startAngle, endAngle
+                180,          # rotation
+                270, 90,    # startAngle, endAngle
                 (0, 128, 255),  # color
                 5           # thickness
             )
@@ -228,6 +230,8 @@ def display_keypoints(input_dir, output_dir):
             num_circle_keypoints_top = len(edge_keypoints_top)
             num_circle_keypoints_bottom = len(edge_keypoints_bottom)
             circle_keypoints_top, circle_keypoints_bottom = img_util.circle_keypoints(radius, num_circle_keypoints_top, num_circle_keypoints_bottom)
+            circle_keypoints_top = img_util.rotate_points_numpy(circle_keypoints_top, degrees=270)
+            circle_keypoints_bottom = img_util.rotate_points_numpy(circle_keypoints_bottom, degrees=270)
             offset = w
             for keypoint in circle_keypoints_top:
                 x, y = keypoint
@@ -265,6 +269,8 @@ def display_keypoints(input_dir, output_dir):
 def warp_petals(input_dir, output_dir):
     """Process all vein images in the input directory."""
     os.makedirs(output_dir, exist_ok=True)
+
+    show = input("Show overlaid images? (y/n): ")
 
     image_pairs = img_align.get_file_pairs(input_dir)
     success = 0
@@ -336,6 +342,11 @@ def warp_petals(input_dir, output_dir):
             edge_keypoints_top, edge_keypoints_bottom = img_align.get_edge_keypoints(petal_shape, keypoints['top corner'], keypoints['bottom corner'], 
                                                                                      keypoints['center_vein_top'], keypoints['center_vein_bottom'], 100)
             
+            # If source top runs opposite to dest top arc, reverse it
+            edge_keypoints_top = edge_keypoints_top[::-1]
+
+            # Similarly for bottom if needed
+            edge_keypoints_bottom = edge_keypoints_bottom[::-1]
             
             '''
             for keypoint in keypoints:
@@ -354,15 +365,40 @@ def warp_petals(input_dir, output_dir):
             src_points = np.array([keypoints['center_vein_top'], keypoints['center_vein_bottom'], keypoints['top corner'], keypoints['bottom corner']])
             src_points = np.concatenate((src_points, edge_keypoints_top, edge_keypoints_bottom), axis=0)
             #warp to semi circle
-            radius = 200
+            radius = 400
             num_circle_keypoints_top = len(edge_keypoints_top)
             num_circle_keypoints_bottom = len(edge_keypoints_bottom)
             circle_keypoints_top, circle_keypoints_bottom = img_util.circle_keypoints(radius, num_circle_keypoints_top, num_circle_keypoints_bottom)
-            dest_points = np.array([[radius,0], [0,0], [0,-radius], [0, radius]])
-            dest_points = np.concatenate((dest_points, circle_keypoints_top, circle_keypoints_bottom), axis=0)
+
+            # Define where the semi-circle center should sit in the output image
+            h, w = image.shape[:2]
+            cx, cy = w // 2, h // 2  # place the arc center in the middle of the output
+
+            # Now build dest_points offset by (cx, cy)
+            dest_points = np.array([
+                [cx + radius, cy],   # center_vein_top  -> arc tip
+                [cx,          cy],   # center_vein_bottom -> arc center (flat edge)
+                [cx,  cy - radius],  # top corner        -> left end of diameter
+                [cx,  cy + radius],  # bottom corner     -> right end of diameter
+            ])
+
+            # Also offset the circle edge keypoints
+            circle_keypoints_top_abs = circle_keypoints_top    + np.array([cx, cy])
+            circle_keypoints_bottom_abs = circle_keypoints_bottom + np.array([cx, cy])
+            circle_keypoints_top_abs = img_util.rotate_points_numpy(circle_keypoints_top_abs, origin=(cx, cy), degrees=270)
+            circle_keypoints_bottom_abs = img_util.rotate_points_numpy(circle_keypoints_bottom_abs, origin=(cx, cy), degrees=270)
+
+            dest_points = np.concatenate( (dest_points, circle_keypoints_top_abs, circle_keypoints_bottom_abs), axis=0 )
+
+            #src_tps  = src_points[:,  ::-1]   # swap to (row, col)
+            #dest_tps = dest_points[:, ::-1]   # swap to (row, col)
+
+            #dest_points = np.array([[radius,0], [0,0], [0,-radius], [0, radius]])
+            #dest_points = np.concatenate((dest_points, circle_keypoints_top, circle_keypoints_bottom), axis=0)
             print('beginning TPS deformation on: ' + base_name)
             tps = ThinPlateSplineTransform()
             success = tps.estimate(dest_points, src_points)  # Note inverse mapping for warp()
+            #success = tps.estimate(dest_tps, src_tps)  # Note inverse mapping for warp()
             if not success:
                 print(f"TPS estimation failed for {base_name}")
                 continue
@@ -371,25 +407,43 @@ def warp_petals(input_dir, output_dir):
             warped = warp(image, tps)
             #io.imshow(warped)
             #io.show()
-
+            edge_keypoints_top = np.array(edge_keypoints_top)
+            edge_keypoints_bottom = np.array(edge_keypoints_bottom)
             
             # Display original and warped images with landmarks
             print('displaying results for: ' + base_name)
             fig, (ax1, ax2) = plt.subplots(1, 2)
             ax1.imshow(image, cmap='gray')
-            ax1.scatter(src_points[:, 0], src_points[:, 1], marker='x', color='red')
-            for i, point in enumerate(src_points):
-                ax1.annotate(f'KP{i+1}', (point[0] + 5, point[1] - 5), color='red', fontsize=12)
+            #ax1.scatter(src_points[:, 0], src_points[:, 1], marker='x', color='red')
+            ax1.scatter(edge_keypoints_top[:, 0], edge_keypoints_top[:, 1], marker='o', color='blue', label='Top Edge Keypoints')
+            ax1.scatter(edge_keypoints_bottom[:, 0], edge_keypoints_bottom[:, 1], marker='o', color='green', label='Bottom Edge Keypoints')
+            #for i, point in enumerate(src_points):
+            #    ax1.annotate(f'KP{i+1}', (point[0] + 5, point[1] - 5), color='red', fontsize=12)
             ax1.set_title('Original Image')
 
-            ax2.imshow(warped, cmap='gray', extent=(0, 1000, 1000, 0))
-            ax2.scatter(dest_points[:, 0], dest_points[:, 1], marker='x', color='red')
-            for i, point in enumerate(dest_points):
-                ax2.annotate(f'KP{i+1}', (point[0] + 5, point[1] - 5), color='red', fontsize=12)
+            ax2.imshow(warped, cmap='gray')
+            #ax2.scatter(dest_points[:, 0], dest_points[:, 1], marker='x', color='red')
+            ax2.scatter(circle_keypoints_top_abs[:, 0], circle_keypoints_top_abs[:, 1], marker='o', color='blue', label='Top Edge Keypoints')
+            ax2.scatter(circle_keypoints_bottom_abs[:, 0], circle_keypoints_bottom_abs[:, 1], marker='o', color='green', label='Bottom Edge Keypoints')
+            #for i, point in enumerate(dest_points):
+            #    ax2.annotate(f'KP{i+1}', (point[0] + 5, point[1] - 5), color='red', fontsize=12)
             ax2.set_title('Warped Image')
 
-            plt.show()
+            for i, point in enumerate(edge_keypoints_top):
+                ax1.annotate(str(i), (point[0]+5, point[1]-5), color='blue', fontsize=8)
+            for i, point in enumerate(circle_keypoints_top_abs):
+                ax2.annotate(str(i), (point[0]+5, point[1]-5), color='blue', fontsize=8)
+
+            for i, point in enumerate(edge_keypoints_bottom):
+                ax1.annotate(str(i), (point[0]+5, point[1]-5), color='green', fontsize=8)
+            for i, point in enumerate(circle_keypoints_bottom_abs):
+                ax2.annotate(str(i), (point[0]+5, point[1]-5), color='green', fontsize=8)
+            if show.lower() == 'y':
+                plt.show()
             
+            output_path = os.path.join(output_dir, f"{base_name}_warped.png")
+            plt.savefig(output_path, bbox_inches='tight', dpi=150)
+            plt.close()  # Free memory, important when processing many images
 
 
         except Exception as e:

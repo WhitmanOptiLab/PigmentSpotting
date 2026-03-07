@@ -170,5 +170,18 @@ def circle_keypoints(radius, n_points_top, n_points_bottom):
         y = radius * np.sin(angle)
         keypoints_bottom.append((x, y))
     return keypoints_top, keypoints_bottom
+
+def rotate_points_numpy(points, origin=(0, 0), degrees=0):
+    """Rotates an array of points counterclockwise around an origin."""
+    angle = np.deg2rad(degrees)
+    R = np.array([[np.cos(angle), -np.sin(angle)],
+                  [np.sin(angle), np.cos(angle)]])
+    o = np.atleast_2d(origin)
+    p = np.atleast_2d(points)
+    return np.squeeze((R @ (p.T - o.T) + o.T).T)
+
+def angle_from_center(pt, center):
+    return np.arctan2(pt[1] - center[1], pt[0] - center[0])
+
     
     
