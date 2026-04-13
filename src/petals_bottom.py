@@ -278,12 +278,17 @@ def process_all_petals(input_dir, output_dir, Write=True):
             
             # Process image
             petal_shape, vein_aligned, warp_matrix = img_align.align_images(petal_image, image)
+            # Use combined image instead of vein_aligned.
+            masked_petal = cv2.bitwise_and(petal_image,cv2.cvtColor(petal_shape, cv2.COLOR_GRAY2BGR),) 
+            combined = img_align.combine_imgs(masked_petal, vein_aligned)
             inv_warp_matrix = cv2.invertAffineTransform(warp_matrix) 
             vein_annotation_t = JSONfunc.get_transformed_annotations(vein_annotation,inv_warp_matrix)
             aligned_keypoints = get_keypoints(vein_annotation_t)
             keypoints = aligned_keypoints
             #keypoints = vein_annotation_t
-            image = vein_aligned
+            #image = vein_aligned
+            image = combined #Used combined image of petal and vein to better showcase whole process.
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             #image = cv2.rotate(image, cv2.ROTATE_180)
             petal_mask = get_petal_shape_simple(image)
             edge_points, edge_type, bounds = detect_edge_from_keypoints(petal_mask, keypoints)

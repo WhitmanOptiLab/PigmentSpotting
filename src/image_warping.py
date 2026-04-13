@@ -124,6 +124,7 @@ def display_keypoints(input_dir, output_dir):
             #keypoints = vein_annotation_t
             #Use the straightened image from petals_bottom
             image = straightened_images[base_name]
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             #image = vein_aligned #fallback
 
             if image is None:
@@ -266,7 +267,7 @@ def display_keypoints(input_dir, output_dir):
             import traceback
             traceback.print_exc()
 
-def warp_petals(input_dir, output_dir):
+def warp_petals(input_dir, output_dir, draw_Keypoints=True):
     """Process all vein images in the input directory."""
     os.makedirs(output_dir, exist_ok=True)
 
@@ -274,7 +275,7 @@ def warp_petals(input_dir, output_dir):
 
     image_pairs = img_align.get_file_pairs(input_dir)
     success = 0
-    straightened_images = petals_bottom.process_all_petals(input_dir, output_dir, False)
+    straightened_images = petals_bottom.process_all_petals(input_dir, output_dir, False) #Change so that we use the combined image and not the vein image
     for pair in image_pairs:
         #print(f"Processing pair: {pair[0]} and {pair[1]}")
         if "vein" in pair[0].lower():
@@ -381,6 +382,7 @@ def warp_petals(input_dir, output_dir):
                 [cx,  cy - radius],  # top corner        -> left end of diameter
                 [cx,  cy + radius],  # bottom corner     -> right end of diameter
             ])
+            axis_points = dest_points[:4]  # the 4 keypoints that define the main axis and corners
 
             # Also offset the circle edge keypoints
             circle_keypoints_top_abs = circle_keypoints_top    + np.array([cx, cy])
@@ -411,39 +413,48 @@ def warp_petals(input_dir, output_dir):
             edge_keypoints_bottom = np.array(edge_keypoints_bottom)
             
             # Display original and warped images with landmarks
-            print('displaying results for: ' + base_name)
-            fig, (ax1, ax2) = plt.subplots(1, 2)
-            ax1.imshow(image, cmap='gray')
-            #ax1.scatter(src_points[:, 0], src_points[:, 1], marker='x', color='red')
-            ax1.scatter(edge_keypoints_top[:, 0], edge_keypoints_top[:, 1], marker='o', color='blue', label='Top Edge Keypoints')
-            ax1.scatter(edge_keypoints_bottom[:, 0], edge_keypoints_bottom[:, 1], marker='o', color='green', label='Bottom Edge Keypoints')
-            #for i, point in enumerate(src_points):
-            #    ax1.annotate(f'KP{i+1}', (point[0] + 5, point[1] - 5), color='red', fontsize=12)
-            ax1.set_title('Original Image')
+            if draw_Keypoints:
+                print('displaying results for: ' + base_name)
+                fig, (ax1, ax2) = plt.subplots(1, 2)
+                ax1.imshow(image, cmap='gray')
+                #ax1.scatter(src_points[:, 0], src_points[:, 1], marker='x', color='red')
+                ax1.scatter(edge_keypoints_top[:, 0], edge_keypoints_top[:, 1], marker='o', color='blue', label='Top Edge Keypoints')
+                ax1.scatter(edge_keypoints_bottom[:, 0], edge_keypoints_bottom[:, 1], marker='o', color='green', label='Bottom Edge Keypoints')
+                ax1.scatter(keypoints['center_vein_top'][0], keypoints['center_vein_top'][1], marker='o', color='yellow', label='Center Vein Top')
+                ax1.scatter(keypoints['center_vein_bottom'][0], keypoints['center_vein_bottom'][1], marker='o', color='magenta', label='Center Vein Bottom')
+                ax1.scatter(keypoints['top corner'][0], keypoints['top corner'][1], marker='o', color='yellow', label='Top Corner')
+                ax1.scatter(keypoints['bottom corner'][0], keypoints['bottom corner'][1], marker='o', color='yellow', label='Bottom Corner')
+                #for i, point in enumerate(src_points):
+                #    ax1.annotate(f'KP{i+1}', (point[0] + 5, point[1] - 5), color='red', fontsize=12)
+                ax1.set_title('Original Image')
 
-            ax2.imshow(warped, cmap='gray')
-            #ax2.scatter(dest_points[:, 0], dest_points[:, 1], marker='x', color='red')
-            ax2.scatter(circle_keypoints_top_abs[:, 0], circle_keypoints_top_abs[:, 1], marker='o', color='blue', label='Top Edge Keypoints')
-            ax2.scatter(circle_keypoints_bottom_abs[:, 0], circle_keypoints_bottom_abs[:, 1], marker='o', color='green', label='Bottom Edge Keypoints')
-            #for i, point in enumerate(dest_points):
-            #    ax2.annotate(f'KP{i+1}', (point[0] + 5, point[1] - 5), color='red', fontsize=12)
-            ax2.set_title('Warped Image')
+                ax2.imshow(warped, cmap='gray')
+                #ax2.scatter(dest_points[:, 0], dest_points[:, 1], marker='x', color='red')
+                ax2.scatter(circle_keypoints_top_abs[:, 0], circle_keypoints_top_abs[:, 1], marker='o', color='blue', label='Top Edge Keypoints')
+                ax2.scatter(circle_keypoints_bottom_abs[:, 0], circle_keypoints_bottom_abs[:, 1], marker='o', color='green', label='Bottom Edge Keypoints')
+                ax2.scatter(axis_points[:, 0], axis_points[:, 1], marker='o', color='yellow', label='Axis Keypoints')
+                
+                #for i, point in enumerate(dest_points):
+                #    ax2.annotate(f'KP{i+1}', (point[0] + 5, point[1] - 5), color='red', fontsize=12)
+                ax2.set_title('Warped Image')
 
-            for i, point in enumerate(edge_keypoints_top):
-                ax1.annotate(str(i), (point[0]+5, point[1]-5), color='blue', fontsize=8)
-            for i, point in enumerate(circle_keypoints_top_abs):
-                ax2.annotate(str(i), (point[0]+5, point[1]-5), color='blue', fontsize=8)
+                for i, point in enumerate(edge_keypoints_top):
+                    ax1.annotate(str(i), (point[0]+5, point[1]-5), color='white', fontsize=8)
+                for i, point in enumerate(circle_keypoints_top_abs):
+                    ax2.annotate(str(i), (point[0]+5, point[1]-5), color='white', fontsize=8)
 
-            for i, point in enumerate(edge_keypoints_bottom):
-                ax1.annotate(str(i), (point[0]+5, point[1]-5), color='green', fontsize=8)
-            for i, point in enumerate(circle_keypoints_bottom_abs):
-                ax2.annotate(str(i), (point[0]+5, point[1]-5), color='green', fontsize=8)
-            if show.lower() == 'y':
-                plt.show()
-            
-            output_path = os.path.join(output_dir, f"{base_name}_warped.png")
-            plt.savefig(output_path, bbox_inches='tight', dpi=150)
-            plt.close()  # Free memory, important when processing many images
+                for i, point in enumerate(edge_keypoints_bottom):
+                    ax1.annotate(str(i), (point[0]+5, point[1]-5), color='white', fontsize=8)
+                for i, point in enumerate(circle_keypoints_bottom_abs):
+                    ax2.annotate(str(i), (point[0]+5, point[1]-5), color='white', fontsize=8)
+                for i, point in enumerate(keypoints.values()):
+                    ax1.annotate(f'KP{i+1}', (point[0] + 5, point[1] - 5), color='white', fontsize=12)
+                if show.lower() == 'y':
+                    plt.show()
+                
+                output_path = os.path.join(output_dir, f"{base_name}_warped.png")
+                plt.savefig(output_path, bbox_inches='tight', dpi=150)
+                plt.close()  # Free memory, important when processing many images
 
 
         except Exception as e:

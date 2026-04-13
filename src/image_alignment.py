@@ -109,6 +109,7 @@ def match_images(petal_image, vein_image, s1, s2):
 
 def combine_imgs(img1, img2):
     grimg = cv2.cvtColor(img2,cv2.COLOR_GRAY2BGR)
+    grimg = cv2.cvtColor(grimg, cv2.COLOR_BGR2RGB)
     alpha = 0.5
     beta = (1.0 - alpha)
     dst = cv2.addWeighted(img1, alpha, grimg, beta, 0.0)
